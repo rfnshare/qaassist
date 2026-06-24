@@ -2,12 +2,14 @@
 
 ## Target Architecture
 
-QA Assist is planned as an extension plus backend system with shared contracts between components.
+QA Assist is planned as an extension plus backend system with shared contracts between components. The product is Azure-first and adapter-based, so later providers can reuse the same normalized contracts.
 
 ```text
 Browser Extension
   -> Backend API
+  -> Board/Knowledge Boundary
   -> Azure DevOps Adapter
+  -> Azure Test Plans Adapter
   -> LLM Gateway
   -> QA Engine
   -> Shared Schemas
@@ -49,6 +51,8 @@ apps/extension/
 ```
 
 The Step 0005 extension detection boundary is URL-only. It parses supported Azure DevOps work item URLs and sends safe page context to the side panel: source, organization, project, work item ID, work item URL, and detection timestamp. It does not scrape story text, fetch Azure DevOps APIs, call the backend, perform auth, or call an LLM.
+
+Step 0006 upgrades the side panel into a QA cockpit shell with Command Center, Work Queue, Story Workspace, Scope & Cases, Manual Run, Automation, Mail, and Settings. These sections are preview-only until their integrations are implemented.
 
 ## Backend API
 
@@ -117,3 +121,5 @@ The package currently provides type-first contracts for API responses, normalize
 - Azure DevOps extraction should not be hardcoded into the QA analysis engine.
 - Story content and tokens should not be persisted unless explicitly designed and approved later.
 - Step 0005 Azure DevOps detection is limited to supported URLs and safe metadata.
+- Board files and requirement memory must be board-scoped when implemented.
+- All write-back operations require explicit user approval.

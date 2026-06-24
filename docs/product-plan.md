@@ -1,51 +1,34 @@
 # Product Plan
 
-## Product
+QA Assist is an embedded QA command center for QA engineers. The first vehicle is a Chrome/Edge browser extension inside Azure DevOps Boards, with Azure Test Plans as the first test management target once Azure is configured.
 
-QA Assist is an embedded QA assistant for QA engineers working on feature/story validation.
+## Product Model
 
-## First Vehicle
+QA Assist should feel like a QA cockpit, not a separate dashboard. The user should stay in Azure DevOps while the assistant helps them understand board condition, select work, clarify requirements, build scope, create source-of-truth test cases, execute manual testing, prepare bugs, and later connect Playwright automation.
 
-The first implementation vehicle is a Chrome/Edge browser extension. The extension should open a right-side assistant panel while the QA engineer remains inside the source application.
+## Core Surfaces
 
-## First Platform
+- QA Command Center: board summary, assigned work, resolved bugs ready to test, mail/update placeholder, and suggested next work.
+- Work Queue: assigned stories, bugs ready to test, prioritization explanation, and future ranking by priority, severity, story points, age, assignment, and release risk.
+- Story Workspace: detected Azure DevOps context, requirement sufficiency, assistant discussion loop, source/context panel, and open questions.
+- Board Brain: future board-scoped requirement memory using uploaded requirements, meeting transcripts, Q&A, and product notes.
+- Scope Builder: draft scope, user-confirmed scope, exclusions, assumptions, and risk areas.
+- Test Case Source Of Truth: approved test cases designed for humans, Azure Test Plans, and future automation.
+- Manual Testing Companion: guided execution, notes, evidence, bug creation from current context, retest, and UAT handoff.
+- Automation Workspace: Playwright first, API automation later, and repo access modes for local repo, GitHub, Azure Repos, QA Assist-managed workspace, or manual export.
 
-Azure DevOps Boards / Work Items is the first supported platform.
+## Accepted Decisions
 
-## First Workflow
+- Azure DevOps Boards is first platform.
+- Azure Test Plans is first test management target when Azure is configured.
+- Later test targets include TestRail, Zephyr, custom Markdown, and export.
+- Azure state mapping will be configurable for In QA, Ready to Test, Resolved, Blocked, and Ready for UAT.
+- Current QA user detection will later use Microsoft/Azure identity; early settings may use configured QA user or assigned-to override.
+- Assigned-to is one signal, not the only truth.
+- Requirement files and board memory are scoped to the selected board.
+- Suggestions are not final. User confirmation is final.
+- Nothing writes back to Azure DevOps, Azure Test Plans, bugs, comments, repositories, or automation without explicit approval.
 
-The first workflow is feature/story QA analysis:
+## Safety Principle
 
-1. Understand the story or requirement.
-2. Identify missing or ambiguous requirements.
-3. Identify impacted product areas.
-4. Draft manual test scope.
-5. Draft functional, negative, edge, and regression test cases.
-6. Mark automation candidates.
-7. Prepare UAT handoff notes.
-
-## MVP Output
-
-The MVP should produce structured sections for:
-
-- Requirement summary.
-- BA/Product questions.
-- Impacted areas.
-- Manual test scope.
-- Test cases.
-- Regression scope.
-- Automation candidates.
-- UAT notes.
-
-## Explicitly Skipped In MVP
-
-- Production incident workflow.
-- Jira support.
-- TestRail or Zephyr integration.
-- Full Playwright code generation.
-- Direct LLM keys inside the extension for production.
-- Reuse of Codex, ChatGPT, VS Code, or unrelated application tokens.
-
-## Product Principle
-
-QA Assist should help the QA engineer work inside the tools they already use. It should reduce context switching, writing overhead, and missed requirement risk while keeping the QA engineer in control.
+QA Assist must be evidence-bound and human-approved. Generated content should be labeled as source-backed, user-confirmed, assumption, or needs confirmation. Open questions remain open until the user confirms the answer.

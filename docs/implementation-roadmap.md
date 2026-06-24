@@ -1,49 +1,63 @@
 # Implementation Roadmap
 
-## 0001 Project Foundation
+## Completed
 
-Create documentation, project rules, git workflow notes, architecture direction, auth plan, decision log, and prompt log. Do not add runtime application code.
+- 0001 Project foundation.
+- 0002 Extension shell.
+- 0003 Backend API skeleton.
+- 0004 Shared contracts.
+- 0005 Azure DevOps URL-only page detection.
 
-## 0002 Extension Shell
+## 0006 Product Replan, Security Foundation, And QA Cockpit UI Shell
 
-Completed in Step 0002.
+Completed in Step 0006 for review.
 
-Create the Chrome/Edge Manifest V3 extension shell with side panel UI, setup placeholder, story placeholder, analysis placeholder, settings placeholder, service worker, and content script placeholder.
+Capture the revised product model, strengthen security/data/hallucination documentation, and upgrade the extension into a preview-only QA cockpit shell.
 
-## 0003 API Skeleton
+## 0007 Board/Work Summary Contracts
 
-Completed in Step 0003.
+Add contracts for board summary, work queue, state mapping, user signals, and preview-safe board condition data.
 
-Add a small TypeScript backend API with health check, version endpoint, config loading, development CORS, and standard error shape.
+## 0008 Azure DevOps Settings And Board Summary Fetch
 
-## 0004 Shared Contracts
+Add Azure DevOps settings, board/project selection, state mapping, and safe board summary fetch.
 
-Completed in Step 0004.
+## 0009 Work Item Detail Fetch
 
-Add shared TypeScript contracts and runtime validation schemas for work item context and QA analysis output.
+Fetch selected story/bug detail through the backend and normalize it into shared contracts.
 
-## 0005 Azure DevOps Work Item Detection
+## 0010 Board-Wise Knowledge/File Upload Design
 
-Completed in Step 0005.
+Design board-scoped uploaded requirement, transcript, Q&A, and product-note knowledge boundaries.
 
-Detect Azure DevOps work item pages in the extension and show parsed source, organization, project, and work item ID.
+## 0011 Story Workspace Requirement Discussion
 
-## 0006 Azure DevOps Fetch
+Add human-in-the-loop requirement clarification with evidence labels and open-question tracking.
 
-Fetch Azure DevOps work item data through the backend using local development PAT configuration only. Normalize the result into shared contracts.
+## 0012 Scope Builder And Confirmation Flow
 
-## 0007 LLM Gateway
+Build draft scope, confirmed scope, assumptions, exclusions, and approval state.
 
-Add backend LLM provider abstraction, mock provider, and a mock `POST /qa/analyze-story` endpoint.
+## 0013 Test Case Source-Of-Truth Generation
 
-## 0008 QA Analysis Engine
+Generate reviewable test cases from confirmed scope and source references.
 
-Add prompt templates, structured output validation, Markdown rendering, and optional real provider configuration when safe.
+## 0014 Azure Test Plans Write-Back
 
-## 0009 Analysis UI
+Push approved test cases to Azure Test Plans only after explicit user confirmation.
 
-Build the extension analysis UI with tabs for overview, questions, test scope, test cases, regression, automation, UAT notes, and Markdown copy.
+## 0015 Manual Testing Companion
 
-## 0010 Post Comment
+Guide manual execution, capture notes/evidence, and support retest/UAT handoff.
 
-Allow explicit user-reviewed posting of generated QA analysis Markdown as an Azure DevOps work item comment.
+## 0016 Bug Creation Flow
+
+Create Azure DevOps bugs from current context only after user review and confirmation.
+
+## 0017 Playwright Framework Integration
+
+Connect approved test cases to Playwright automation candidates and repository modes.
+
+## 0018 Automation Generation/Execution/CI
+
+Generate, run, maintain, and connect automation with CI only through explicit user approval.

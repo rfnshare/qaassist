@@ -21,3 +21,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0003-api-skeleton`: Fastify TypeScript backend skeleton with health endpoint, config loading, CORS, and structured errors.
 - `0004-shared-contracts`: shared TypeScript contracts for API responses, work item context, and QA analysis output.
 - `0005-azure-devops-page-detection`: extension URL-only detection for Azure DevOps work item pages.
+- `0006-product-replan-qa-cockpit-ui`: product replan, security foundation docs, and premium QA cockpit UI shell.

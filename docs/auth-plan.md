@@ -22,3 +22,6 @@ QA Assist must not reuse Codex, ChatGPT, VS Code, browser, or unrelated applicat
 - Keep `.env.example` safe and placeholder-only.
 - Prefer server-side secret storage for team or production use.
 - Avoid storing story content longer than needed unless a future retention model is explicitly approved.
+- Do not put production LLM keys in the browser extension.
+- Store future integration tokens encrypted server-side with least-privilege scopes.
+- Use explicit approval before any action that writes to Azure DevOps, Azure Test Plans, code repositories, or external systems.

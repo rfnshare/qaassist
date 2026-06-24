@@ -19,6 +19,14 @@ Follow these rules strictly:
 13. Use structured schemas for QA output.
 14. Treat Playwright generation as a later capability, not MVP code generation.
 15. Do not reuse Codex, ChatGPT, VS Code, browser, or unrelated app login tokens.
+16. Do not silently write back to Azure DevOps, Azure Test Plans, comments, bugs, files, repositories, or automation systems.
+17. Treat user confirmation as the final authority for QA output, test cases, write-back, bug creation, and automation changes.
+18. Keep outputs evidence-bound. Label content as source-backed, user-confirmed, assumption, or needs confirmation when those states matter.
+19. Do not present assumptions as facts. Keep open questions open until the user confirms an answer.
+20. Keep Azure first, but preserve adapter-based architecture for later Jira, TestRail, Zephyr, GitHub, and other integrations.
+21. Do not show fake real board data in UI. Demo values must be clearly labeled as preview-only or placeholder.
+22. Treat board knowledge and uploaded requirement files as future board-scoped data with explicit access boundaries.
+23. Maintain a strong security foundation: least privilege, no raw content persistence by default, no broad host permissions, and no silent data exfiltration.
 
 After every task, report:
 

@@ -39,7 +39,7 @@ Browser Extension
 
 ## Current Status
 
-Step 0003 API skeleton is implemented. The repository now contains a minimal Chrome Manifest V3 extension under `apps/extension` and a Fastify TypeScript backend skeleton under `apps/api`.
+Step 0004 shared contracts are implemented. The repository now contains a minimal Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
 Azure DevOps integration, auth, LLM calls, database/storage, and QA analysis logic are intentionally not implemented yet.
 
@@ -80,6 +80,8 @@ Typecheck only the API:
 ```bash
 npm run typecheck:api
 ```
+
+The root `npm run build` and `npm run typecheck` commands cover the shared package, API, and extension workspaces.
 
 API environment defaults are documented in `.env.example`. Keep real values in local `.env` files only.
 

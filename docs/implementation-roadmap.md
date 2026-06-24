@@ -18,6 +18,8 @@ Add a small TypeScript backend API with health check, version endpoint, config l
 
 ## 0004 Shared Contracts
 
+Completed in Step 0004.
+
 Add shared TypeScript contracts and runtime validation schemas for work item context and QA analysis output.
 
 ## 0005 Azure DevOps Work Item Detection

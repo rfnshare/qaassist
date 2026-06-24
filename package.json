@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "Embedded QA assistant for feature/story QA workflows.",
   "workspaces": [
+    "packages/*",
     "apps/*"
   ],
   "scripts": {

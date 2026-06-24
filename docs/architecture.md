@@ -79,6 +79,27 @@ The QA engine converts normalized work item context into structured QA analysis.
 
 Shared schemas define the contracts for work item context, comments, attachments, linked work items, QA analysis results, questions, test cases, regression scope, automation candidates, and UAT notes.
 
+Initial shared package structure:
+
+```text
+packages/shared/
+  src/
+    api/
+      apiError.ts
+      apiResponse.ts
+    common/
+      sourceProvider.ts
+      timestamps.ts
+    qa/
+      qaAnalysisResult.ts
+      qaEnums.ts
+      testCase.ts
+    work-items/
+      workItemContext.ts
+```
+
+The package currently provides type-first contracts for API responses, normalized work item context, QA analysis results, QA questions, impacted areas, test scope, test cases, regression scope, automation candidates, and UAT handoff notes. Runtime validation schemas are intentionally deferred until the contracts are reviewed against the Azure DevOps adapter needs.
+
 ## Boundaries
 
 - Extension UI should not contain provider-specific LLM logic.

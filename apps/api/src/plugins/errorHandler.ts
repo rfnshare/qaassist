@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
-import type { ApiErrorResponse } from "../types/apiError.js";
+import type { ApiErrorCode, ApiErrorResponse } from "@qa-assist/shared";
 
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setNotFoundHandler((request, reply) => {
@@ -12,7 +12,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
 
   app.setErrorHandler((error, request, reply) => {
     const statusCode = getStatusCode(error);
-    const code = statusCode >= 500 ? "INTERNAL_SERVER_ERROR" : "BAD_REQUEST";
+    const code: ApiErrorCode = statusCode >= 500 ? "INTERNAL_SERVER_ERROR" : "BAD_REQUEST";
     const message = statusCode >= 500 ? "Unexpected server error." : getErrorMessage(error);
 
     request.log.error(error);

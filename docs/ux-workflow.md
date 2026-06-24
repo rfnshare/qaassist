@@ -1,15 +1,20 @@
 # UX Workflow
 
-QA Assist starts in a Command Center view, then narrows into a story or bug workspace.
+QA Assist uses a simplified four-section side panel designed for a narrow browser extension window. The workflow should feel calm first, then progressively reveal deeper QA work only when the engineer asks for it.
 
-## Flow
+## Primary Sections
 
-1. Command Center shows preview board condition and setup status.
-2. Work Queue helps QA decide what to test next.
-3. Story Workspace shows detected Azure DevOps context and requirement readiness placeholders.
-4. Scope & Cases turns clarified requirements into reviewable scope and source-of-truth test cases.
-5. Manual Run guides execution and evidence collection.
-6. Automation suggests later Playwright/API paths from approved test cases.
-7. Settings controls Azure project, board, state mapping, QA user identity, Azure Test Plans destination, LLM/privacy mode, and board knowledge.
+1. Today helps the QA engineer orient quickly with setup status, future board summary placeholders, and one clear next action.
+2. Story focuses on the currently detected Azure DevOps work item and future requirement review, scope, and test case approval.
+3. Run prepares the future manual testing companion, evidence capture, bug creation, and automation candidate flow.
+4. Settings keeps theme, Azure DevOps connection, board mapping, QA identity, Azure Test Plans, board knowledge, and privacy placeholders compact.
 
-All preview values must be clearly labeled as not connected until Azure DevOps fetch is implemented.
+## Interaction Model
+
+Each main section should have one large primary action. Secondary details live in compact cards so the panel does not feel like a dashboard squeezed into a drawer.
+
+Progressive disclosure matters because QA Assist will eventually cover board awareness, story analysis, manual execution, bugs, UAT handoff, Azure Test Plans, and automation. The side panel should introduce those capabilities as a path, not as a wall of modules.
+
+## Trust Rules
+
+Preview values must be clearly labeled as preview-only or not connected until Azure DevOps fetch is implemented. Do not show fake counts, fake story titles, fake test cases, or fake analysis as real data.

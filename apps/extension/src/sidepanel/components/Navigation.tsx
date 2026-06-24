@@ -1,21 +1,13 @@
 export type PanelKey =
-  | "command"
-  | "queue"
+  | "today"
   | "story"
-  | "scope"
-  | "manual"
-  | "automation"
-  | "mail"
+  | "run"
   | "settings";
 
 const navItems: Array<{ key: PanelKey; label: string }> = [
-  { key: "command", label: "Command Center" },
-  { key: "queue", label: "Work Queue" },
-  { key: "story", label: "Story Workspace" },
-  { key: "scope", label: "Scope & Cases" },
-  { key: "manual", label: "Manual Run" },
-  { key: "automation", label: "Automation" },
-  { key: "mail", label: "Mail" },
+  { key: "today", label: "Today" },
+  { key: "story", label: "Story" },
+  { key: "run", label: "Run" },
   { key: "settings", label: "Settings" }
 ];
 

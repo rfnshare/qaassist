@@ -10,6 +10,7 @@ Use filenames that match the implementation step:
 docs/prompts/0001-project-foundation.md
 docs/prompts/0002-extension-shell.md
 docs/prompts/0003-api-skeleton.md
+docs/prompts/0007-simplified-ui-dark-mode.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -22,3 +23,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0004-shared-contracts`: shared TypeScript contracts for API responses, work item context, and QA analysis output.
 - `0005-azure-devops-page-detection`: extension URL-only detection for Azure DevOps work item pages.
 - `0006-product-replan-qa-cockpit-ui`: product replan, security foundation docs, and premium QA cockpit UI shell.
+- `0007-simplified-ui-dark-mode`: simplified four-section side panel UI, dark mode, one-primary-action layout, and calm preview states.

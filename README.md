@@ -39,9 +39,9 @@ Browser Extension
 
 ## Current Status
 
-Step 0006 product replan, security foundation, and QA cockpit UI shell is implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0007 simplified UI and dark mode shell is implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
-Azure DevOps URL-only work item detection exists in the extension. The side panel now presents a QA command center and workflow cockpit. Azure DevOps board fetch, Azure Test Plans, auth, LLM calls, file upload, database/storage, and QA analysis logic are intentionally not implemented yet.
+Azure DevOps URL-only work item detection exists in the extension. The side panel now uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Azure DevOps board fetch, Azure Test Plans, auth, LLM calls, file upload, database/storage, write-back, automation generation, and QA analysis logic are intentionally not implemented yet.
 
 ## Local Development
 
@@ -93,11 +93,12 @@ Load the unpacked extension locally:
 4. Click `Load unpacked`.
 5. Select `apps/extension/dist`.
 
-Test the QA cockpit and Azure DevOps page detection locally:
+Test the simplified QA Assist side panel and Azure DevOps page detection locally:
 
 1. Load the unpacked extension from `apps/extension/dist`.
 2. Open a supported Azure DevOps work item URL, for example `https://dev.azure.com/my-org/my-project/_workitems/edit/12345`.
 3. Open the QA Assist side panel.
-4. Inspect the `Command Center` and `Story Workspace` sections.
-5. Confirm the organization, project, work item ID, URL, and detection timestamp are shown.
-6. Board/work counts are preview placeholders until the Azure DevOps board fetch step is implemented.
+4. Review the `Today`, `Story`, `Run`, and `Settings` sections.
+5. Confirm the `Story` section shows the organization, project, work item ID, URL, and detection timestamp.
+6. In `Settings`, test `System`, `Light`, and `Dark` theme modes.
+7. Confirm board/work summaries are clearly labeled as preview placeholders until Azure DevOps board fetch is implemented.

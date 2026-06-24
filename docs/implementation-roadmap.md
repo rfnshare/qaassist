@@ -12,6 +12,8 @@ Create the Chrome/Edge Manifest V3 extension shell with side panel UI, setup pla
 
 ## 0003 API Skeleton
 
+Completed in Step 0003.
+
 Add a small TypeScript backend API with health check, version endpoint, config loading, development CORS, and standard error shape.
 
 ## 0004 Shared Contracts

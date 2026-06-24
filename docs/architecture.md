@@ -43,6 +43,26 @@ The shell currently includes a side panel UI, background service worker, content
 
 The backend mediates calls to Azure DevOps and LLM providers. It is responsible for config loading, auth flow handling, request validation, structured error responses, and privacy boundaries.
 
+Initial backend skeleton module structure:
+
+```text
+apps/api/
+  src/
+    app.ts
+    server.ts
+    config/
+      env.ts
+    plugins/
+      cors.ts
+      errorHandler.ts
+    routes/
+      health.routes.ts
+    types/
+      apiError.ts
+```
+
+The API skeleton currently includes `GET /`, `GET /health`, environment variable parsing, development CORS, request IDs, and structured error responses. It does not include Azure DevOps integration, OAuth, PAT handling, LLM providers, database/storage, or QA analysis orchestration yet.
+
 ## Azure DevOps Adapter
 
 The Azure DevOps adapter fetches work item data and normalizes platform-specific fields into shared work item contracts. Azure DevOps is the first adapter; Jira and other tools are later possibilities.

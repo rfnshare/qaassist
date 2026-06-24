@@ -39,9 +39,9 @@ Browser Extension
 
 ## Current Status
 
-Step 0002 extension shell is implemented. The repository now contains a minimal Chrome Manifest V3 extension under `apps/extension` with a right-side panel shell, placeholder navigation, a background service worker, and a content script placeholder.
+Step 0003 API skeleton is implemented. The repository now contains a minimal Chrome Manifest V3 extension under `apps/extension` and a Fastify TypeScript backend skeleton under `apps/api`.
 
-Azure DevOps integration, backend calls, LLM calls, and QA analysis logic are intentionally not implemented yet.
+Azure DevOps integration, auth, LLM calls, database/storage, and QA analysis logic are intentionally not implemented yet.
 
 ## Local Development
 
@@ -62,6 +62,26 @@ Typecheck the extension shell:
 ```bash
 npm run typecheck
 ```
+
+Run the API locally:
+
+```bash
+npm run dev:api
+```
+
+Build only the API:
+
+```bash
+npm run build:api
+```
+
+Typecheck only the API:
+
+```bash
+npm run typecheck:api
+```
+
+API environment defaults are documented in `.env.example`. Keep real values in local `.env` files only.
 
 Load the unpacked extension locally:
 

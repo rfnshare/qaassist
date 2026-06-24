@@ -7,7 +7,12 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @qa-assist/extension",
-    "typecheck": "npm run typecheck --workspace @qa-assist/extension"
+    "dev:api": "npm run dev --workspace @qa-assist/api",
+    "build": "npm run build --workspaces --if-present",
+    "build:api": "npm run build --workspace @qa-assist/api",
+    "build:extension": "npm run build --workspace @qa-assist/extension",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck:api": "npm run typecheck --workspace @qa-assist/api",
+    "typecheck:extension": "npm run typecheck --workspace @qa-assist/extension"
   }
 }

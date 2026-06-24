@@ -18,3 +18,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 
 - `0001-project-foundation`: project foundation and documentation.
 - `0002-extension-shell`: Chrome/Edge Manifest V3 extension shell with right-side panel placeholders.
+- `0003-api-skeleton`: Fastify TypeScript backend skeleton with health endpoint, config loading, CORS, and structured errors.

@@ -1,0 +1,139 @@
+:root {
+  color: #18221b;
+  background: #f4f7f1;
+  font-family: "Aptos", "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 247, 241, 0.96)),
+    repeating-linear-gradient(90deg, rgba(24, 34, 27, 0.04) 0 1px, transparent 1px 32px);
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.header h1,
+.status-card h2,
+.panel h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.header h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.eyebrow,
+.section-label {
+  margin: 0 0 5px;
+  color: #667166;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #20734d;
+  box-shadow: 0 0 0 6px rgba(32, 115, 77, 0.12);
+}
+
+.status-card,
+.panel {
+  border: 1px solid #d5dfd2;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 34px rgba(24, 34, 27, 0.08);
+}
+
+.status-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.status-card p,
+.description,
+.placeholder-list {
+  color: #4c584d;
+  line-height: 1.45;
+}
+
+.status-card p,
+.description {
+  margin: 0;
+}
+
+.navigation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nav-button {
+  min-height: 40px;
+  border: 1px solid #d5dfd2;
+  border-radius: 7px;
+  color: #18221b;
+  background: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.nav-button.active {
+  border-color: #20734d;
+  color: #145d3b;
+  background: #e6f1e8;
+}
+
+.panel {
+  flex: 1;
+  padding: 16px;
+}
+
+.panel h2 {
+  font-size: 18px;
+}
+
+.description {
+  margin-top: 8px;
+}
+
+.placeholder-list {
+  margin: 14px 0 0;
+  padding-left: 20px;
+}
+
+.placeholder-list li {
+  margin: 9px 0;
+}

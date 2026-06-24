@@ -17,6 +17,28 @@ Browser Extension
 
 The extension provides the embedded right-side assistant panel. It detects supported Azure DevOps work item pages, displays setup and analysis states, and sends requests to the backend.
 
+Initial shell module structure:
+
+```text
+apps/extension/
+  public/
+    manifest.json
+  src/
+    background/
+      index.ts
+    content/
+      index.ts
+    shared/
+      extensionMessages.ts
+    sidepanel/
+      App.tsx
+      main.tsx
+      styles.css
+      components/
+```
+
+The shell currently includes a side panel UI, background service worker, content script placeholder, and static Manifest V3 configuration. It does not detect Azure DevOps pages, call backend APIs, call LLM providers, or render real QA analysis yet.
+
 ## Backend API
 
 The backend mediates calls to Azure DevOps and LLM providers. It is responsible for config loading, auth flow handling, request validation, structured error responses, and privacy boundaries.

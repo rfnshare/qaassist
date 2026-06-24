@@ -6,7 +6,9 @@ Create documentation, project rules, git workflow notes, architecture direction,
 
 ## 0002 Extension Shell
 
-Create the Chrome/Edge Manifest V3 extension shell with side panel UI, setup placeholder, story detected placeholder, analysis placeholder, settings placeholder, service worker, and content script.
+Completed in Step 0002.
+
+Create the Chrome/Edge Manifest V3 extension shell with side panel UI, setup placeholder, story placeholder, analysis placeholder, settings placeholder, service worker, and content script placeholder.
 
 ## 0003 API Skeleton
 

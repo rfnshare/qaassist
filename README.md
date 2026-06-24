@@ -39,8 +39,34 @@ Browser Extension
 
 ## Current Status
 
-Project foundation is being created. No runtime extension, backend, Azure DevOps integration, or LLM implementation exists yet.
+Step 0002 extension shell is implemented. The repository now contains a minimal Chrome Manifest V3 extension under `apps/extension` with a right-side panel shell, placeholder navigation, a background service worker, and a content script placeholder.
+
+Azure DevOps integration, backend calls, LLM calls, and QA analysis logic are intentionally not implemented yet.
 
 ## Local Development
 
-Runtime commands will be added when the extension and backend skeletons are introduced.
+Install dependencies:
+
+```bash
+npm install
+```
+
+Build the extension shell:
+
+```bash
+npm run build
+```
+
+Typecheck the extension shell:
+
+```bash
+npm run typecheck
+```
+
+Load the unpacked extension locally:
+
+1. Run `npm run build`.
+2. Open Chrome and go to `chrome://extensions`.
+3. Enable Developer mode.
+4. Click `Load unpacked`.
+5. Select `apps/extension/dist`.

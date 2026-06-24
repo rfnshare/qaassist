@@ -1,0 +1,13 @@
+{
+  "name": "qa-assist",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Embedded QA assistant for feature/story QA workflows.",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @qa-assist/extension",
+    "typecheck": "npm run typecheck --workspace @qa-assist/extension"
+  }
+}

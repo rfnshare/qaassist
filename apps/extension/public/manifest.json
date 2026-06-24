@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "QA Assist",
+  "description": "Embedded QA assistant shell for story QA workflows.",
+  "version": "0.0.2",
+  "permissions": ["sidePanel", "storage", "activeTab"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "QA Assist"
+  }
+}

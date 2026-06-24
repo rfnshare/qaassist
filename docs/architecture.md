@@ -39,6 +39,17 @@ apps/extension/
 
 The shell currently includes a side panel UI, background service worker, content script placeholder, and static Manifest V3 configuration. It does not detect Azure DevOps pages, call backend APIs, call LLM providers, or render real QA analysis yet.
 
+Azure DevOps page detection module structure:
+
+```text
+apps/extension/
+  src/
+    adapters/
+      azureDevOpsPageAdapter.ts
+```
+
+The Step 0005 extension detection boundary is URL-only. It parses supported Azure DevOps work item URLs and sends safe page context to the side panel: source, organization, project, work item ID, work item URL, and detection timestamp. It does not scrape story text, fetch Azure DevOps APIs, call the backend, perform auth, or call an LLM.
+
 ## Backend API
 
 The backend mediates calls to Azure DevOps and LLM providers. It is responsible for config loading, auth flow handling, request validation, structured error responses, and privacy boundaries.
@@ -105,3 +116,4 @@ The package currently provides type-first contracts for API responses, normalize
 - Extension UI should not contain provider-specific LLM logic.
 - Azure DevOps extraction should not be hardcoded into the QA analysis engine.
 - Story content and tokens should not be persisted unless explicitly designed and approved later.
+- Step 0005 Azure DevOps detection is limited to supported URLs and safe metadata.

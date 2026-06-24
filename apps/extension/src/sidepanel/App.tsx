@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { AzureDevOpsPageContext } from "../adapters/azureDevOpsPageAdapter";
+import { EXTENSION_MESSAGES, type ExtensionMessage } from "../shared/extensionMessages";
 import { Header } from "./components/Header";
 import { Navigation, type PanelKey } from "./components/Navigation";
 import { PlaceholderPanel } from "./components/PlaceholderPanel";
+import { StoryPanel } from "./components/StoryPanel";
 import { StatusCard } from "./components/StatusCard";
 
-const panels: Record<PanelKey, { title: string; description: string; items: string[] }> = {
+type PlaceholderPanelKey = Exclude<PanelKey, "story">;
+
+const panels: Record<PlaceholderPanelKey, { title: string; description: string; items: string[] }> = {
   setup: {
     title: "Setup placeholder",
     description: "Connection and workspace setup will appear here in a later step.",
@@ -12,15 +17,6 @@ const panels: Record<PanelKey, { title: string; description: string; items: stri
       "Azure DevOps connection is not implemented yet.",
       "LLM provider connection is not implemented yet.",
       "No credentials or tokens are stored in this shell."
-    ]
-  },
-  story: {
-    title: "Story placeholder",
-    description: "Detected work item context will appear here after Azure DevOps detection is added.",
-    items: [
-      "No Azure DevOps page detection in this step.",
-      "No work item data is read yet.",
-      "This view is reserved for feature/story context."
     ]
   },
   analysis: {
@@ -45,13 +41,53 @@ const panels: Record<PanelKey, { title: string; description: string; items: stri
 
 export function App() {
   const [activePanel, setActivePanel] = useState<PanelKey>("setup");
+  const [pageContext, setPageContext] = useState<AzureDevOpsPageContext | null>(null);
+  const [storyStatus, setStoryStatus] = useState<"checking" | "detected" | "unsupported">("checking");
+
+  useEffect(() => {
+    function handleMessage(message: ExtensionMessage): void {
+      if (message.type === EXTENSION_MESSAGES.PAGE_CONTEXT_DETECTED) {
+        setPageContext(message.payload);
+        setStoryStatus(message.payload ? "detected" : "unsupported");
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (!tab?.id) {
+        setStoryStatus("unsupported");
+        return;
+      }
+
+      chrome.tabs.sendMessage(
+        tab.id,
+        { type: EXTENSION_MESSAGES.REQUEST_PAGE_CONTEXT },
+        (response: AzureDevOpsPageContext | null | undefined) => {
+          if (chrome.runtime.lastError) {
+            setStoryStatus("unsupported");
+            return;
+          }
+
+          setPageContext(response ?? null);
+          setStoryStatus(response ? "detected" : "unsupported");
+        }
+      );
+    });
+
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, []);
 
   return (
     <main className="app-shell">
       <Header />
       <StatusCard />
       <Navigation activePanel={activePanel} onChange={setActivePanel} />
-      <PlaceholderPanel {...panels[activePanel]} />
+      {activePanel === "story" ? (
+        <StoryPanel pageContext={pageContext} status={storyStatus} />
+      ) : (
+        <PlaceholderPanel {...panels[activePanel as PlaceholderPanelKey]} />
+      )}
     </main>
   );
 }

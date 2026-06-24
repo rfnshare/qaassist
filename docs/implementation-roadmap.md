@@ -24,6 +24,8 @@ Add shared TypeScript contracts and runtime validation schemas for work item con
 
 ## 0005 Azure DevOps Work Item Detection
 
+Completed in Step 0005.
+
 Detect Azure DevOps work item pages in the extension and show parsed source, organization, project, and work item ID.
 
 ## 0006 Azure DevOps Fetch

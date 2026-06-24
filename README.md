@@ -39,9 +39,9 @@ Browser Extension
 
 ## Current Status
 
-Step 0004 shared contracts are implemented. The repository now contains a minimal Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0005 Azure DevOps page detection is implemented for review. The repository now contains a minimal Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
-Azure DevOps integration, auth, LLM calls, database/storage, and QA analysis logic are intentionally not implemented yet.
+Azure DevOps URL-only work item detection exists in the extension. Azure DevOps API fetch, auth, LLM calls, database/storage, and QA analysis logic are intentionally not implemented yet.
 
 ## Local Development
 
@@ -92,3 +92,11 @@ Load the unpacked extension locally:
 3. Enable Developer mode.
 4. Click `Load unpacked`.
 5. Select `apps/extension/dist`.
+
+Test Azure DevOps page detection locally:
+
+1. Load the unpacked extension from `apps/extension/dist`.
+2. Open a supported Azure DevOps work item URL, for example `https://dev.azure.com/my-org/my-project/_workitems/edit/12345`.
+3. Open the QA Assist side panel.
+4. Select the `Story` tab.
+5. Confirm the organization, project, work item ID, URL, and detection timestamp are shown.

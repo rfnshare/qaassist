@@ -1,0 +1,15 @@
+# Prompt Log
+
+Every implementation step should store the task prompt under `docs/prompts/`.
+
+The prompt file should include enough detail for a future contributor or agent to understand the goal, branch, constraints, tasks, verification expectations, and expected final response format.
+
+Use filenames that match the implementation step:
+
+```text
+docs/prompts/0001-project-foundation.md
+docs/prompts/0002-extension-shell.md
+docs/prompts/0003-api-skeleton.md
+```
+
+If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.

@@ -17,3 +17,6 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Do not finalize test cases without QA approval.
 - Generated test cases should later cite source references.
 - Write-back requires explicit preview and confirmation.
+- Board briefing output must cite returned board summary, work queue, or recommendation evidence for concrete work-item claims.
+- Deterministic preview briefing must be labeled as preview output and still require user confirmation.
+- Future LLM-assisted briefing must stay backend-mediated and must not treat unverified inference as fact.

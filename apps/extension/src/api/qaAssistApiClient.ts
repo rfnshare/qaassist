@@ -2,6 +2,7 @@ import type {
   AzureDevOpsConnectionInfo,
   AzureDevOpsProjectOption,
   AzureDevOpsTeamOption,
+  BoardBriefing,
   BoardScope,
   CurrentQaUserSettings,
   QaWorkQueue,
@@ -46,6 +47,18 @@ export async function fetchBoardSummaryPreview(
   }
 ): Promise<BoardSummaryPreviewResponse> {
   return postJson(apiBaseUrl, "/azure-devops/board-summary/preview", input);
+}
+
+export async function generateBoardBriefing(
+  apiBaseUrl: string,
+  input: {
+    boardSummary: BoardSummary;
+    workQueue: QaWorkQueue;
+    recommendation?: WorkRecommendation;
+    currentQaUser?: CurrentQaUserSettings;
+  }
+): Promise<BoardBriefing> {
+  return postJson(apiBaseUrl, "/briefings/board", input);
 }
 
 async function postJson<T>(apiBaseUrl: string, path: string, body: unknown): Promise<T> {

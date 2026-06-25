@@ -1,5 +1,6 @@
 export * from "./api/apiError.js";
 export * from "./api/apiResponse.js";
+export * from "./briefings/boardBriefing.js";
 export * from "./boards/boardSummary.js";
 export * from "./boards/workQueue.js";
 export * from "./common/sourceProvider.js";

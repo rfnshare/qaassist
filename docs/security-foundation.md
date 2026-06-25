@@ -14,3 +14,4 @@
 - Future audit logs should avoid raw story content by default.
 - All write-back actions require explicit user approval.
 - AI analysis, board knowledge upload, Azure Test Plans creation, bug creation, comments, and repository changes remain inactive until explicit review and approval flows exist.
+- Step 0013 board briefing is deterministic preview logic unless a future backend LLM adapter is explicitly configured. The extension must not store AI keys or call model providers directly.

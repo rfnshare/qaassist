@@ -22,11 +22,13 @@ Briefing content must be labeled when the distinction matters:
 - Assumption: inferred by the assistant and not confirmed.
 - Needs confirmation: useful but not ready to treat as fact.
 
-## Step 0011 Scope
+## Step 0013 Scope
 
-Step 0011 adds UI placeholders only. The Today panel shows AI board briefing as `LLM summary not active yet`, and Settings includes the AI Analysis configuration card.
+Step 0013 adds the first backend board briefing foundation. It uses deterministic preview logic over returned `BoardSummary`, `QaWorkQueue`, and `WorkRecommendation` evidence. It is not an LLM call and must not be described as LLM-generated.
 
-No LLM calls, prompt execution, storage, privacy filtering, model selection, or generated briefing output are implemented in this step.
+The Today panel can generate an evidence-bound preview briefing after board condition has been fetched. The briefing highlights ready-to-retest work, assigned QA work, suggested next work, risks, assumptions, and needs-confirmation items. It does not invent story requirements or hidden context.
+
+No LLM calls, prompt execution against a provider, storage, privacy filtering pipeline, model selection, or write-back are implemented in this step.
 
 ## Future Backend Direction
 

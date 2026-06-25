@@ -6,6 +6,7 @@ import type {
   AzureDevOpsConnectionStatus,
   AzureDevOpsProjectOption,
   AzureDevOpsTeamOption,
+  BoardBriefing,
   BoardScope,
   BoardSummary,
   CurrentQaUserSettings,
@@ -15,6 +16,7 @@ import {
   type BoardSummaryPreviewResponse,
   connectAzureDevOps,
   fetchBoardSummaryPreview,
+  generateBoardBriefing,
   listAzureTeams
 } from "../api/qaAssistApiClient";
 import type { AzureDevOpsPageContext } from "../adapters/azureDevOpsPageAdapter";
@@ -26,6 +28,7 @@ type DetectionStatus = "checking" | "detected" | "unsupported";
 type ThemePreference = "system" | "light" | "dark";
 type ResolvedTheme = "light" | "dark";
 type FetchStatus = "idle" | "loading" | "success" | "error";
+type BriefingStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -73,6 +76,9 @@ export function App() {
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle");
   const [fetchMessage, setFetchMessage] = useState<string>("Board condition has not been fetched yet.");
   const [preview, setPreview] = useState<BoardSummaryPreviewResponse | null>(null);
+  const [briefingStatus, setBriefingStatus] = useState<BriefingStatus>("idle");
+  const [briefingMessage, setBriefingMessage] = useState<string>("Fetch board condition first to generate an evidence-bound briefing.");
+  const [briefing, setBriefing] = useState<BoardBriefing | null>(null);
   const [setupStatus, setSetupStatus] = useState<SetupStatus>("idle");
   const [setupMessage, setSetupMessage] = useState<string>("Enter your Azure DevOps Services or TFS URL to begin.");
   const [projectOptions, setProjectOptions] = useState<AzureDevOpsProjectOption[]>([]);
@@ -160,11 +166,41 @@ export function App() {
       });
 
       setPreview(payload);
+      setBriefing(null);
+      setBriefingStatus("idle");
+      setBriefingMessage("Board condition fetched. Generate an evidence-bound QA briefing when ready.");
       setFetchStatus("success");
       setFetchMessage("Fetched live Azure DevOps board condition.");
     } catch (error) {
       setFetchStatus("error");
       setFetchMessage(error instanceof Error ? error.message : "Board condition fetch failed.");
+    }
+  }
+
+  async function generateQaBriefing(): Promise<void> {
+    if (!preview) {
+      setBriefingStatus("error");
+      setBriefingMessage("Fetch board condition first to generate an evidence-bound briefing.");
+      return;
+    }
+
+    setBriefingStatus("loading");
+    setBriefingMessage("Generating evidence-bound QA briefing...");
+
+    try {
+      const payload = await generateBoardBriefing(settings.apiBaseUrl, {
+        boardSummary: preview.boardSummary,
+        workQueue: preview.workQueue,
+        recommendation: preview.recommendation,
+        currentQaUser: buildCurrentQaUser(settings)
+      });
+
+      setBriefing(payload);
+      setBriefingStatus("success");
+      setBriefingMessage("Generated evidence-bound preview briefing.");
+    } catch (error) {
+      setBriefingStatus("error");
+      setBriefingMessage(error instanceof Error ? error.message : "Briefing generation failed.");
     }
   }
 
@@ -184,6 +220,9 @@ export function App() {
           fetchStatus,
           fetchMessage,
           preview,
+          briefing,
+          briefingStatus,
+          briefingMessage,
           setupStatus,
           setupMessage,
           setSetupStatus,
@@ -193,6 +232,7 @@ export function App() {
           teamOptions,
           setTeamOptions,
           onFetchBoardSummary: fetchBoardSummary,
+          onGenerateQaBriefing: generateQaBriefing,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -211,6 +251,9 @@ function renderPanel(props: {
   fetchStatus: FetchStatus;
   fetchMessage: string;
   preview: BoardSummaryPreviewResponse | null;
+  briefing: BoardBriefing | null;
+  briefingStatus: BriefingStatus;
+  briefingMessage: string;
   setupStatus: SetupStatus;
   setupMessage: string;
   setSetupStatus: (status: SetupStatus) => void;
@@ -220,6 +263,7 @@ function renderPanel(props: {
   teamOptions: AzureDevOpsTeamOption[];
   setTeamOptions: (teams: AzureDevOpsTeamOption[]) => void;
   onFetchBoardSummary: () => void;
+  onGenerateQaBriefing: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -230,7 +274,11 @@ function renderPanel(props: {
           fetchStatus={props.fetchStatus}
           fetchMessage={props.fetchMessage}
           preview={props.preview}
+          briefing={props.briefing}
+          briefingStatus={props.briefingStatus}
+          briefingMessage={props.briefingMessage}
           onFetchBoardSummary={props.onFetchBoardSummary}
+          onGenerateQaBriefing={props.onGenerateQaBriefing}
           onOpenSettings={props.onOpenSettings}
         />
       );
@@ -263,14 +311,22 @@ function TodayPanel({
   fetchStatus,
   fetchMessage,
   preview,
+  briefing,
+  briefingStatus,
+  briefingMessage,
   onFetchBoardSummary,
+  onGenerateQaBriefing,
   onOpenSettings
 }: {
   settings: ExtensionSettings;
   fetchStatus: FetchStatus;
   fetchMessage: string;
   preview: BoardSummaryPreviewResponse | null;
+  briefing: BoardBriefing | null;
+  briefingStatus: BriefingStatus;
+  briefingMessage: string;
   onFetchBoardSummary: () => void;
+  onGenerateQaBriefing: () => void;
   onOpenSettings: () => void;
 }) {
   const selectedTeamReady = hasSelectedTeamBoard(settings);
@@ -287,9 +343,12 @@ function TodayPanel({
         disabled={fetchStatus === "loading"}
         onClick={selectedTeamReady ? onFetchBoardSummary : onOpenSettings}
       />
-      <InfoCard
-        title="AI board briefing"
-        body="LLM summary not active yet. After Azure and AI setup, this will explain what changed, what is ready to retest, and what work should be handled first."
+      <BriefingCard
+        briefing={briefing}
+        status={briefingStatus}
+        message={briefingMessage}
+        canGenerate={selectedTeamReady && Boolean(preview)}
+        onGenerate={onGenerateQaBriefing}
       />
       {selectedTeamReady ? (
         <InfoCard title="Fetch status" body={fetchMessage} tone={fetchStatus === "error" ? "warning" : "neutral"} />
@@ -782,6 +841,67 @@ function RecommendationCard({ recommendation }: { recommendation: WorkRecommenda
       <p>{item ? `#${item.workItemId} - ${truncateTitle(item.title)}` : "No recommended item returned."}</p>
       <p>{recommendation.reason}</p>
     </article>
+  );
+}
+
+function BriefingCard({
+  briefing,
+  status,
+  message,
+  canGenerate,
+  onGenerate
+}: {
+  briefing: BoardBriefing | null;
+  status: BriefingStatus;
+  message: string;
+  canGenerate: boolean;
+  onGenerate: () => void;
+}) {
+  return (
+    <article className="info-card briefing-card">
+      <div className="card-row">
+        <h3>AI board briefing</h3>
+        <span className="status-pill">{briefing?.mode === "deterministic-preview" ? "Evidence-bound preview" : "Needs confirmation"}</span>
+      </div>
+      <p>{message}</p>
+      <SecondaryAction
+        label={status === "loading" ? "Generating briefing..." : "Generate QA briefing"}
+        disabled={!canGenerate || status === "loading"}
+        onClick={onGenerate}
+      />
+      {briefing ? (
+        <div className="briefing-body">
+          <strong>{briefing.headline}</strong>
+          <p>{briefing.summary}</p>
+          <BriefingList title="Ready to retest" items={briefing.readyToRetest.insights.map((insight) => insight.text)} />
+          <BriefingList title="My QA work" items={briefing.myQaWork.insights.map((insight) => insight.text)} />
+          {briefing.suggestedNextWork ? (
+            <BriefingList title="Suggested next work" items={[`${briefing.suggestedNextWork.label}. ${briefing.suggestedNextWork.reason}`]} />
+          ) : null}
+          <BriefingList title="Risks and gaps" items={briefing.risksAndGaps.map((risk) => risk.text)} />
+          <BriefingList title="Assumptions" items={briefing.assumptions.slice(0, 3)} />
+          <BriefingList title="Needs confirmation" items={briefing.needsConfirmation.slice(0, 3)} />
+          <p className="trust-note">{briefing.disclaimer}</p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function BriefingList({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="briefing-list">
+      <span>{title}</span>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

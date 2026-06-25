@@ -13,57 +13,62 @@
 - 0009 Azure DevOps settings and board summary fetch.
 - 0010 Azure preview validation and Today UI refinement.
 - 0011 Seamless Azure setup and configuration shell.
+- 0012 Azure connection and team discovery routes.
 
-## 0012 Azure Connection And Team Discovery Routes
+## 0013 Evidence-Bound AI Board Briefing Foundation
 
-Implemented for review in Step 0012.
+Implemented for review in Step 0013.
 
-Add safe read-only backend routes for Azure organization, project, team, board, iteration, and state discovery. Keep OAuth design separate from local PAT fallback.
+Add shared briefing contracts, a backend deterministic evidence-bound board briefing generator, a `/briefings/board` route, and Today UI for generating a useful QA briefing from returned board summary/work queue evidence. No LLM provider call is active yet.
 
-## 0013 AI Board Briefing Backend Design
+## 0014 Real Azure Discovery Hardening
 
-Design backend-mediated AI board briefing with source labels, privacy filtering, structured output, and no write-back.
+Harden setup and discovery based on manual real Azure validation findings.
 
-## 0014 Work Item Detail Fetch
+## 0015 Work Item Detail Fetch
 
 Fetch selected story/bug detail through the backend and normalize it into shared contracts.
 
-## 0015 State Mapping Save And Board Setup Hardening
+## 0016 Requirement/Knowledge Upload Foundation
+
+Design the first board-scoped requirement, transcript, Q&A, and product-note upload boundaries.
+
+## 0017 Backend LLM Provider Adapter
+
+Add optional backend-mediated LLM provider abstraction for approved AI workflows. The extension must not hold AI keys.
+
+## 0018 State Mapping Save And Board Setup Hardening
 
 Persist user-approved Azure DevOps state mappings, improve board/team selection, and harden setup validation.
 
-## 0016 Board-Wise Knowledge/File Upload Design
-
-Design board-scoped uploaded requirement, transcript, Q&A, and product-note knowledge boundaries.
-
-## 0017 Story Workspace Requirement Discussion
+## 0019 Story Workspace Requirement Discussion
 
 Add human-in-the-loop requirement clarification with evidence labels and open-question tracking.
 
-## 0018 Scope Builder And Confirmation Flow
+## 0020 Scope Builder And Confirmation Flow
 
 Build draft scope, confirmed scope, assumptions, exclusions, and approval state.
 
-## 0019 Test Case Source-Of-Truth Generation
+## 0021 Test Case Source-Of-Truth Generation
 
 Generate reviewable test cases from confirmed scope and source references.
 
-## 0020 Azure Test Plans Write-Back
+## 0022 Azure Test Plans Write-Back
 
 Push approved test cases to Azure Test Plans only after explicit user confirmation.
 
-## 0021 Manual Testing Companion
+## 0023 Manual Testing Companion
 
 Guide manual execution, capture notes/evidence, and support retest/UAT handoff.
 
-## 0022 Bug Creation Flow
+## 0024 Bug Creation Flow
 
 Create Azure DevOps bugs from current context only after user review and confirmation.
 
-## 0023 Playwright Framework Integration
+## 0025 Playwright Framework Integration
 
 Connect approved test cases to Playwright automation candidates and repository modes.
 
-## 0024 Automation Generation/Execution/CI
+## 0026 Automation Generation/Execution/CI
 
 Generate, run, maintain, and connect automation with CI only through explicit user approval.

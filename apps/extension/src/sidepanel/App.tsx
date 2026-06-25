@@ -449,6 +449,7 @@ function StoryPanel({
   onFetchStoryDetail: () => void;
 }) {
   const detected = Boolean(pageContext);
+  const checking = status === "checking";
   const differsFromSelectedBoard =
     detected &&
     settings.project.trim() &&
@@ -456,14 +457,17 @@ function StoryPanel({
 
   return (
     <section className="panel-content">
-      <PanelIntro eyebrow="Story" title={detected ? "Review this Azure work item." : "Open a story to begin."} />
-      <PrimaryAction
-        label={detailStatus === "loading" ? "Fetching details..." : detected ? "Fetch story details" : "Open Azure DevOps story"}
-        helper={detected ? "Read-only via QA Assist API" : "Open an Azure DevOps work item to begin."}
-        disabled={!detected || detailStatus === "loading"}
-        onClick={detected ? onFetchStoryDetail : undefined}
-      />
+      <PanelIntro eyebrow="Story" title={detected ? "Review this Azure work item." : checking ? "Checking current page." : "Open a story to begin."} />
+      {detected ? (
+        <PrimaryAction
+          label={detailStatus === "loading" ? "Fetching details..." : "Fetch story details"}
+          helper="Read-only via QA Assist API"
+          disabled={detailStatus === "loading"}
+          onClick={onFetchStoryDetail}
+        />
+      ) : null}
       <DetectionCard pageContext={pageContext} status={status} />
+      {!detected && !checking ? <OpenAzureWorkItemInstruction /> : null}
       {detected && !hasSelectedTeamBoard(settings) ? (
         <InfoCard title="Page context" body="Using detected page context. Select a team board in Settings for Today/recommendations." />
       ) : null}
@@ -473,6 +477,19 @@ function StoryPanel({
       <InfoCard title="Fetch status" body={detailMessage} tone={detailStatus === "error" ? "warning" : "neutral"} />
       {detail ? <StoryDetailView detail={detail} /> : <StoryPlaceholderCards />}
     </section>
+  );
+}
+
+function OpenAzureWorkItemInstruction() {
+  return (
+    <article className="info-card">
+      <h3>Open an Azure DevOps work item</h3>
+      <p>Go to an Azure DevOps work item page, then reopen QA Assist or switch back to the Story tab.</p>
+      <div className="url-examples" aria-label="Supported Azure DevOps work item URL examples">
+        <code>https://dev.azure.com/{`{org}`}/{`{project}`}/_workitems/edit/{`{id}`}</code>
+        <code>https://{`{org}`}.visualstudio.com/{`{project}`}/_workitems/edit/{`{id}`}</code>
+      </div>
+    </article>
   );
 }
 

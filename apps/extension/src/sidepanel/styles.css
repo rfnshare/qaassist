@@ -175,7 +175,7 @@ button {
 }
 
 .primary-action:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.72;
   transform: none;
 }
@@ -208,7 +208,7 @@ button {
 }
 
 .secondary-action:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.72;
   transform: none;
 }
@@ -247,6 +247,23 @@ button {
 
 .info-card.warning {
   border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+
+.url-examples {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.url-examples code {
+  display: block;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .trust-note {

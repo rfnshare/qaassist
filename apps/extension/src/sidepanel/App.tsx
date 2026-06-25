@@ -236,6 +236,7 @@ function TodayPanel({
 }) {
   const settingsReady = Boolean(settings.organization.trim() && settings.project.trim() && settings.apiBaseUrl.trim());
   const metrics = preview?.boardSummary.metrics ?? [];
+  const stateBuckets = preview ? getStateBucketEntries(preview.boardSummary) : [];
 
   return (
     <section className="panel-content">
@@ -249,14 +250,13 @@ function TodayPanel({
       <InfoCard title="Fetch status" body={fetchMessage} tone={fetchStatus === "error" ? "warning" : "neutral"} />
       {preview ? (
         <>
+          <SnapshotMeta summary={preview.boardSummary} />
           <InfoGrid items={metrics.map((metric) => [metric.label, formatMetric(metric.value, metric.sourceDescription)])} />
+          <StateBucketGrid buckets={stateBuckets} />
           <WorkItemsList title="My QA work" items={preview.boardSummary.myWork} />
           <WorkItemsList title="Resolved bugs ready to retest" items={preview.boardSummary.resolvedBugsReadyToRetest} />
           {preview.recommendation ? (
-            <InfoCard
-              title="Suggested next work"
-              body={`${preview.recommendation.recommendedWorkItem?.workItemId ?? "No item"} - ${preview.recommendation.reason} User confirmation is required.`}
-            />
+            <RecommendationCard recommendation={preview.recommendation} />
           ) : null}
         </>
       ) : (
@@ -335,10 +335,14 @@ function SettingsPanel({
     <section className="panel-content">
       <PanelIntro eyebrow="Settings" title="Configure local read-only Azure access." />
       <ThemeToggle value={themePreference} onChange={onThemeChange} />
+      <InfoCard
+        title="Backend token check"
+        body="QA Assist checks whether the API server has an Azure DevOps PAT only when you fetch. The extension never stores or asks for the PAT."
+      />
       <section className="settings-form" aria-label="Azure DevOps local settings">
-        <TextInput label="API base URL" value={settings.apiBaseUrl} onChange={(value) => updateSetting("apiBaseUrl", value)} />
-        <TextInput label="Azure organization" value={settings.organization} onChange={(value) => updateSetting("organization", value)} />
-        <TextInput label="Azure project" value={settings.project} onChange={(value) => updateSetting("project", value)} />
+        <TextInput label="API base URL" help="Local backend, usually http://127.0.0.1:4317" value={settings.apiBaseUrl} onChange={(value) => updateSetting("apiBaseUrl", value)} />
+        <TextInput label="Azure organization" help="The org segment from dev.azure.com/{organization}" value={settings.organization} onChange={(value) => updateSetting("organization", value)} />
+        <TextInput label="Azure project" help="The Azure DevOps project name used by the board" value={settings.project} onChange={(value) => updateSetting("project", value)} />
         <TextInput label="Azure team optional" value={settings.team} onChange={(value) => updateSetting("team", value)} />
         <TextInput label="Iteration path optional" value={settings.iterationPath} onChange={(value) => updateSetting("iterationPath", value)} />
         <TextInput
@@ -453,8 +457,8 @@ function WorkItemsList({ title, items }: { title: string; items: BoardSummary["m
         <ul className="work-list">
           {items.slice(0, 5).map((item) => (
             <li key={`${item.source}-${item.workItemId}`}>
-              <span>#{item.workItemId}</span>
-              <strong>{item.title}</strong>
+              <span>#{item.workItemId} · {item.state}</span>
+              <strong title={item.title}>{truncateTitle(item.title)}</strong>
             </li>
           ))}
         </ul>
@@ -465,11 +469,68 @@ function WorkItemsList({ title, items }: { title: string; items: BoardSummary["m
   );
 }
 
-function TextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function SnapshotMeta({ summary }: { summary: BoardSummary }) {
+  return (
+    <article className="snapshot-card">
+      <div>
+        <span className="meta-label">Board</span>
+        <strong>{summary.selectedBoard.organization} / {summary.selectedBoard.project}</strong>
+      </div>
+      <div>
+        <span className="meta-label">Fetched</span>
+        <strong>{formatDateTime(summary.generatedAt)}</strong>
+      </div>
+      <p>{summary.dataFreshness ?? summary.sourceDescription ?? "Live Azure DevOps preview data."}</p>
+    </article>
+  );
+}
+
+function StateBucketGrid({ buckets }: { buckets: Array<[string, number | undefined]> }) {
+  return (
+    <section className="state-grid" aria-label="State buckets">
+      {buckets.map(([label, count]) => (
+        <article className="state-bucket" key={label}>
+          <span>{label}</span>
+          <strong>{count ?? "Not returned"}</strong>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function RecommendationCard({ recommendation }: { recommendation: WorkRecommendation }) {
+  const item = recommendation.recommendedWorkItem;
+
+  return (
+    <article className="info-card recommendation-card">
+      <div className="card-row">
+        <h3>Suggested next work</h3>
+        <span className="status-pill">Needs confirmation</span>
+      </div>
+      <p>
+        {item ? `#${item.workItemId} - ${truncateTitle(item.title)}` : "No recommended item returned."}
+      </p>
+      <p>{recommendation.reason}</p>
+    </article>
+  );
+}
+
+function TextInput({
+  label,
+  help,
+  value,
+  onChange
+}: {
+  label: string;
+  help?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <label className="settings-field">
       <span>{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} />
+      {help ? <small>{help}</small> : null}
     </label>
   );
 }
@@ -537,6 +598,30 @@ function normalizeOptional(value: string): string | undefined {
 function formatMetric(value: string | number | undefined, sourceDescription: string | undefined): string {
   const metricValue = value === undefined ? "Not returned" : String(value);
   return sourceDescription ? `${metricValue}. ${sourceDescription}` : metricValue;
+}
+
+function getStateBucketEntries(summary: BoardSummary): Array<[string, number | undefined]> {
+  return [
+    ["In QA", summary.stateBuckets.inQA.count],
+    ["Ready to Test", summary.stateBuckets.readyToTest.count],
+    ["Resolved", summary.stateBuckets.resolved.count],
+    ["Blocked", summary.stateBuckets.blocked.count],
+    ["Ready for UAT", summary.stateBuckets.readyForUat.count]
+  ];
+}
+
+function truncateTitle(title: string): string {
+  const normalized = title.replace(/\s+/g, " ").trim();
+  return normalized.length > 72 ? `${normalized.slice(0, 69)}...` : normalized;
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
 }
 
 function getSystemTheme(): ResolvedTheme {

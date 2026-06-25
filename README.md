@@ -39,7 +39,7 @@ Browser Extension
 
 ## Current Status
 
-Step 0009 Azure DevOps settings and board summary fetch is implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0010 Azure preview validation and Today UI refinement is implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
 Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Settings can store non-secret local Azure organization/project/team/current-QA-user/API-base-URL values, and Today can request a read-only board summary preview from the local backend.
 
@@ -116,3 +116,5 @@ Test the simplified QA Assist side panel and Azure DevOps page detection locally
 7. In `Settings`, configure API base URL, Azure organization, project, optional team/iteration, and optional current QA user.
 8. In `Today`, click `Fetch board summary`.
 9. Confirm real counts only appear after a successful backend fetch. If backend PAT is missing, the UI should show `Azure DevOps backend token is not configured. Add it to local .env on the API server.`
+
+Manual Azure preview validation steps are documented in `docs/manual-tests/0010-azure-preview-validation.md`.

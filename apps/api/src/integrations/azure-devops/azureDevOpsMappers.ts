@@ -99,7 +99,10 @@ function buildSignals(input: {
   }
 
   if (input.createdDate) {
-    signals.push({ type: "age", label: "Age in days", value: calculateAgeDays(input.createdDate) });
+    const ageDays = calculateAgeDays(input.createdDate);
+    if (ageDays !== undefined) {
+      signals.push({ type: "age", label: "Age in days", value: ageDays });
+    }
   }
 
   if (input.state) {
@@ -132,8 +135,12 @@ function readIdentity(value: unknown): string | undefined {
     return value;
   }
 
-  if (typeof value === "object" && value !== null && "displayName" in value && typeof value.displayName === "string") {
-    return value.displayName;
+  if (typeof value === "object" && value !== null) {
+    const identity = value as Record<string, unknown>;
+    const displayName = readString(identity.displayName);
+    const uniqueName = readString(identity.uniqueName);
+    const mailAddress = readString(identity.mailAddress);
+    return displayName ?? uniqueName ?? mailAddress;
   }
 
   return undefined;
@@ -174,10 +181,10 @@ function isBlockedState(state: string | undefined, tags: string[]): boolean {
   return state?.toLowerCase().includes("blocked") === true || tags.some((tag) => tag.toLowerCase() === "blocked");
 }
 
-function calculateAgeDays(createdDate: string): number {
+function calculateAgeDays(createdDate: string): number | undefined {
   const createdTime = new Date(createdDate).getTime();
   if (!Number.isFinite(createdTime)) {
-    return 0;
+    return undefined;
   }
 
   return Math.max(0, Math.floor((Date.now() - createdTime) / 86_400_000));

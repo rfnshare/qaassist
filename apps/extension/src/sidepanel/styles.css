@@ -125,6 +125,7 @@ button {
 .panel-frame,
 .info-card,
 .context-card,
+.snapshot-card,
 .theme-card {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -194,6 +195,7 @@ button {
 
 .info-card,
 .context-card,
+.snapshot-card,
 .theme-card {
   padding: 13px;
 }
@@ -207,6 +209,7 @@ button {
 }
 
 .info-card p,
+.snapshot-card p,
 .theme-card p,
 .trust-note {
   margin: 7px 0 0;
@@ -309,6 +312,66 @@ button {
 .settings-field input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.settings-field small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.snapshot-card {
+  display: grid;
+  gap: 10px;
+}
+
+.snapshot-card div {
+  display: grid;
+  gap: 3px;
+}
+
+.snapshot-card strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.meta-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.state-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.state-bucket {
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.state-bucket span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.state-bucket strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 18px;
+}
+
+.recommendation-card {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
 }
 
 .work-list {

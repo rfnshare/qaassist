@@ -12,14 +12,11 @@
 - 0008 Board/work summary contracts.
 - 0009 Azure DevOps settings and board summary fetch.
 - 0010 Azure preview validation and Today UI refinement.
-
-## 0011 Seamless Azure Setup And Configuration Shell
-
-Implemented for review in Step 0011.
-
-Make Settings feel like a product setup hub: connect Azure DevOps Services or TFS by URL, show connection state, select a project/team board, expose configuration placeholders for QA workflow, Azure Test Plans, board knowledge, AI analysis, automation, privacy, and approval, and keep Today setup-first when no team board is selected.
+- 0011 Seamless Azure setup and configuration shell.
 
 ## 0012 Azure Connection And Team Discovery Routes
+
+Implemented for review in Step 0012.
 
 Add safe read-only backend routes for Azure organization, project, team, board, iteration, and state discovery. Keep OAuth design separate from local PAT fallback.
 

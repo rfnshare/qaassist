@@ -56,6 +56,8 @@ Step 0009 keeps the simplified Today, Story, Run, and Settings flow. Settings st
 
 Step 0011 reshapes Settings into a product configuration hub. The extension can store non-secret Azure setup values such as server URL, connection mode/status, selected organization, project, team, board, iteration path, current QA user, and advanced local API base URL. The selected team board is the working scope for Today, Story, Run, recommendations, board knowledge, and later test management defaults. The shell does not implement OAuth, discovery, uploads, LLM calls, write-back, database persistence, or automation integration.
 
+Step 0012 wires setup discovery through the backend. The extension sends the Azure DevOps Services or TFS URL to `/azure-devops/setup/connect`, receives non-secret connection metadata, then lists projects and team boards through backend read-only routes. The extension does not call Azure DevOps directly and does not receive the local development PAT.
+
 ## Backend API
 
 The backend mediates calls to Azure DevOps and LLM providers. It is responsible for config loading, auth flow handling, request validation, structured error responses, and privacy boundaries.
@@ -86,7 +88,7 @@ The Azure DevOps adapter fetches work item data and normalizes platform-specific
 
 Step 0009 adds backend-only read operations for Azure DevOps states and board summary preview. The preview uses WIQL to find candidate work item IDs, Work Items Batch to fetch selected fields, and mappers to produce `BoardSummary`, `QaWorkQueue`, and `WorkRecommendation` contracts.
 
-Future Step 0012 routes should add read-only Azure connection and team board discovery so the Step 0011 manual setup shell can become a guided selection flow.
+Step 0012 adds read-only Azure DevOps Services connection, project, and team discovery. TFS URL parsing is supported as setup direction, while full TFS discovery remains a later adapter capability.
 
 ## LLM Gateway
 

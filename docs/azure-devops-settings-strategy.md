@@ -17,7 +17,9 @@ Step 0011 changes the setup experience into a user-facing connection shell:
 - The selected team displays as `Selected Team: {organization}/{project}/{team}`.
 - The user can change the selected team board.
 
-Real organization/project/team discovery is deferred. Until discovery routes exist, the extension supports manual non-secret fields and keeps the local API base URL in an advanced local development area. QA users should not need PATs, `.env`, or backend URL knowledge in the production direction.
+Step 0012 adds read-only backend setup routes for URL parsing, Azure DevOps Services project discovery, and team board discovery. The extension now calls the backend to connect, list projects, and list teams. Manual non-secret fields remain available as `Advanced local preview` for local development or missing-token cases.
+
+TFS URL parsing is supported for the setup direction, but full TFS project/team discovery remains a later adapter hardening task. QA users should not need PATs, `.env`, or backend URL knowledge in the production direction.
 
 ## State Mapping
 

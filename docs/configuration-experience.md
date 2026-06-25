@@ -6,21 +6,26 @@ QA Assist setup should feel like connecting a product to Azure DevOps, not like 
 
 1. The user enters an Azure DevOps Services or Team Foundation Server URL.
 2. The user clicks Connect.
-3. QA Assist validates the URL shape and shows Not connected, Connected, or Needs attention.
-4. The user chooses organization, project, team, optional board, and optional iteration path.
-5. QA Assist displays `Selected Team: {organization}/{project}/{team}`.
-6. The user can click Change and update the selected team board.
-7. Today, Story, Run, recommendations, board knowledge, and future test management defaults use the selected team board as their working scope.
+3. QA Assist validates the URL shape through the backend and shows Not connected, Connecting, Connected, or Needs attention.
+4. QA Assist discovers Azure DevOps Services projects when a backend token is available.
+5. The user chooses a project.
+6. QA Assist discovers team boards for that project.
+7. The user chooses a team board.
+8. QA Assist displays `Selected Team: {organization}/{project}/{team}`.
+9. The user can click Change and update the selected team board.
+10. Today, Story, Run, recommendations, board knowledge, and future test management defaults use the selected team board as their working scope.
 
-## Step 0011 Scope
+## Step 0012 Scope
 
-Step 0011 implements the extension-side shell for this flow. It can parse Azure DevOps Services URLs such as `https://dev.azure.com/your-org`, recognize legacy `visualstudio.com` organization URLs, and accept Team Foundation Server URLs as a connection mode. Manual team board entry remains the setup path until read-only discovery routes are implemented.
+Step 0012 adds backend setup routes for read-only Azure DevOps Services project and team discovery. It parses Azure DevOps Services URLs such as `https://dev.azure.com/your-org`, recognizes legacy `visualstudio.com` organization URLs, and accepts HTTPS Team Foundation Server collection URLs as a setup shape.
 
-This step does not implement Microsoft Entra auth, OAuth, real organization discovery, team discovery, board discovery, Azure Test Plans write-back, file upload, database persistence, LLM calls, automation integration, or write-back.
+TFS URL parsing is present so the product direction is clear, but full TFS discovery remains a later adapter capability because on-prem REST setup can differ by collection and version.
+
+This step does not implement Microsoft Entra auth, OAuth, Azure Test Plans write-back, file upload, database persistence, LLM calls, automation integration, or write-back.
 
 ## Local Development Fallback
 
-Local development may still use the backend-only PAT fallback from the API server environment. That fallback is intentionally hidden behind advanced local development UI. QA users should not need to understand PATs, `.env`, or backend URLs in the production direction.
+Local development may still use the backend-only PAT fallback from the API server environment. If the backend token is missing, discovery returns a safe message and the extension leaves manual setup under `Advanced local preview`. QA users should not need to understand PATs, `.env`, or backend URLs in the production direction.
 
 ## Configuration Areas
 

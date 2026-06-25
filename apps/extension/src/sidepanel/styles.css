@@ -207,6 +207,12 @@ button {
   outline: none;
 }
 
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
 .info-grid {
   display: grid;
   gap: 10px;
@@ -333,7 +339,8 @@ button {
   font-weight: 800;
 }
 
-.settings-field input {
+.settings-field input,
+.settings-field select {
   width: 100%;
   min-height: 38px;
   border: 1px solid var(--border);
@@ -351,7 +358,8 @@ button {
   color: color-mix(in srgb, var(--text-muted) 66%, transparent);
 }
 
-.settings-field input:focus {
+.settings-field input:focus,
+.settings-field select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }

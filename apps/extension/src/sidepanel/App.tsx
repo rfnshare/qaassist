@@ -1,14 +1,22 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type {
+  AzureDevOpsConnectionInfo,
   AzureDevOpsConnectionMode,
   AzureDevOpsConnectionStatus,
+  AzureDevOpsProjectOption,
+  AzureDevOpsTeamOption,
   BoardScope,
   BoardSummary,
   CurrentQaUserSettings,
-  QaWorkQueue,
   WorkRecommendation
 } from "@qa-assist/shared";
+import {
+  type BoardSummaryPreviewResponse,
+  connectAzureDevOps,
+  fetchBoardSummaryPreview,
+  listAzureTeams
+} from "../api/qaAssistApiClient";
 import type { AzureDevOpsPageContext } from "../adapters/azureDevOpsPageAdapter";
 import { EXTENSION_MESSAGES, type ExtensionMessage } from "../shared/extensionMessages";
 import { Header } from "./components/Header";
@@ -18,12 +26,14 @@ type DetectionStatus = "checking" | "detected" | "unsupported";
 type ThemePreference = "system" | "light" | "dark";
 type ResolvedTheme = "light" | "dark";
 type FetchStatus = "idle" | "loading" | "success" | "error";
+type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
   apiBaseUrl: string;
   azureServerUrl: string;
   connectionMode: AzureDevOpsConnectionMode;
   connectionStatus: AzureDevOpsConnectionStatus;
+  connectionInfo?: AzureDevOpsConnectionInfo;
   lastConnectedAt: string;
   organization: string;
   project: string;
@@ -34,12 +44,6 @@ type ExtensionSettings = {
   currentQaUserEmail: string;
 };
 
-type BoardSummaryPreviewResponse = {
-  boardSummary: BoardSummary;
-  workQueue: QaWorkQueue;
-  recommendation?: WorkRecommendation;
-};
-
 const THEME_STORAGE_KEY = "qaAssistTheme";
 const SETTINGS_STORAGE_KEY = "qaAssistSettings";
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:4317";
@@ -48,6 +52,7 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   azureServerUrl: "",
   connectionMode: "azure-devops-services",
   connectionStatus: "not-connected",
+  connectionInfo: undefined,
   lastConnectedAt: "",
   organization: "",
   project: "",
@@ -68,6 +73,10 @@ export function App() {
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle");
   const [fetchMessage, setFetchMessage] = useState<string>("Board condition has not been fetched yet.");
   const [preview, setPreview] = useState<BoardSummaryPreviewResponse | null>(null);
+  const [setupStatus, setSetupStatus] = useState<SetupStatus>("idle");
+  const [setupMessage, setSetupMessage] = useState<string>("Enter your Azure DevOps Services or TFS URL to begin.");
+  const [projectOptions, setProjectOptions] = useState<AzureDevOpsProjectOption[]>([]);
+  const [teamOptions, setTeamOptions] = useState<AzureDevOpsTeamOption[]>([]);
 
   useEffect(() => {
     chrome.storage.local.get({ [THEME_STORAGE_KEY]: "system", [SETTINGS_STORAGE_KEY]: DEFAULT_SETTINGS }, (items) => {
@@ -144,25 +153,13 @@ export function App() {
     setFetchMessage("Fetching live Azure DevOps board condition...");
 
     try {
-      const response = await fetch(`${settings.apiBaseUrl.replace(/\/$/, "")}/azure-devops/board-summary/preview`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          selectedBoard: buildBoardScope(settings),
-          currentQaUser: buildCurrentQaUser(settings),
-          maxItems: 100
-        })
+      const payload = await fetchBoardSummaryPreview(settings.apiBaseUrl, {
+        selectedBoard: buildBoardScope(settings),
+        currentQaUser: buildCurrentQaUser(settings),
+        maxItems: 100
       });
 
-      const payload = (await response.json()) as BoardSummaryPreviewResponse | { error?: { message?: string } };
-
-      if (!response.ok) {
-        throw new Error("error" in payload ? payload.error?.message : "Board condition fetch failed.");
-      }
-
-      setPreview(payload as BoardSummaryPreviewResponse);
+      setPreview(payload);
       setFetchStatus("success");
       setFetchMessage("Fetched live Azure DevOps board condition.");
     } catch (error) {
@@ -187,6 +184,14 @@ export function App() {
           fetchStatus,
           fetchMessage,
           preview,
+          setupStatus,
+          setupMessage,
+          setSetupStatus,
+          setSetupMessage,
+          projectOptions,
+          setProjectOptions,
+          teamOptions,
+          setTeamOptions,
           onFetchBoardSummary: fetchBoardSummary,
           onOpenSettings: () => setActivePanel("settings")
         })}
@@ -206,6 +211,14 @@ function renderPanel(props: {
   fetchStatus: FetchStatus;
   fetchMessage: string;
   preview: BoardSummaryPreviewResponse | null;
+  setupStatus: SetupStatus;
+  setupMessage: string;
+  setSetupStatus: (status: SetupStatus) => void;
+  setSetupMessage: (message: string) => void;
+  projectOptions: AzureDevOpsProjectOption[];
+  setProjectOptions: (projects: AzureDevOpsProjectOption[]) => void;
+  teamOptions: AzureDevOpsTeamOption[];
+  setTeamOptions: (teams: AzureDevOpsTeamOption[]) => void;
   onFetchBoardSummary: () => void;
   onOpenSettings: () => void;
 }) {
@@ -232,6 +245,14 @@ function renderPanel(props: {
           onThemeChange={props.setThemePreference}
           settings={props.settings}
           onSettingsChange={props.setSettings}
+          setupStatus={props.setupStatus}
+          setupMessage={props.setupMessage}
+          onSetupStatusChange={props.setSetupStatus}
+          onSetupMessageChange={props.setSetupMessage}
+          projectOptions={props.projectOptions}
+          onProjectOptionsChange={props.setProjectOptions}
+          teamOptions={props.teamOptions}
+          onTeamOptionsChange={props.setTeamOptions}
         />
       );
   }
@@ -343,35 +364,111 @@ function SettingsPanel({
   themePreference,
   onThemeChange,
   settings,
-  onSettingsChange
+  onSettingsChange,
+  setupStatus,
+  setupMessage,
+  onSetupStatusChange,
+  onSetupMessageChange,
+  projectOptions,
+  onProjectOptionsChange,
+  teamOptions,
+  onTeamOptionsChange
 }: {
   themePreference: ThemePreference;
   onThemeChange: (theme: ThemePreference) => void;
   settings: ExtensionSettings;
   onSettingsChange: (settings: ExtensionSettings) => void;
+  setupStatus: SetupStatus;
+  setupMessage: string;
+  onSetupStatusChange: (status: SetupStatus) => void;
+  onSetupMessageChange: (message: string) => void;
+  projectOptions: AzureDevOpsProjectOption[];
+  onProjectOptionsChange: (projects: AzureDevOpsProjectOption[]) => void;
+  teamOptions: AzureDevOpsTeamOption[];
+  onTeamOptionsChange: (teams: AzureDevOpsTeamOption[]) => void;
 }) {
   function updateSetting(key: keyof ExtensionSettings, value: string): void {
     onSettingsChange({ ...settings, [key]: value });
   }
 
-  function connectAzure(): void {
-    const parsed = parseAzureUrl(settings.azureServerUrl);
+  async function connectAzure(): Promise<void> {
+    onSetupStatusChange("connecting");
+    onSetupMessageChange("Checking the Azure connection through the QA Assist API...");
+    onSettingsChange({ ...settings, connectionStatus: "connecting" });
+    onProjectOptionsChange([]);
+    onTeamOptionsChange([]);
 
-    if (!parsed) {
+    try {
+      const result = await connectAzureDevOps(settings.apiBaseUrl, settings.azureServerUrl);
+      const connection = result.connection;
+
+      onSettingsChange({
+        ...settings,
+        connectionInfo: connection,
+        connectionMode: connection.mode,
+        connectionStatus: connection.status,
+        lastConnectedAt: connection.connectedAt ?? new Date().toISOString(),
+        organization: connection.organization ?? settings.organization,
+        project: connection.project ?? "",
+        team: "",
+        board: "",
+        iterationPath: ""
+      });
+      onProjectOptionsChange(result.projects);
+      onSetupStatusChange("success");
+      onSetupMessageChange(
+        result.projects.length > 0
+          ? `Connected. ${result.projects.length} project option${result.projects.length === 1 ? "" : "s"} discovered.`
+          : "Connected. Project discovery returned no projects."
+      );
+    } catch (error) {
       onSettingsChange({ ...settings, connectionStatus: "needs-attention" });
+      onSetupStatusChange("error");
+      onSetupMessageChange(error instanceof Error ? error.message : "Azure connection failed.");
+    }
+  }
+
+  async function selectProject(projectName: string): Promise<void> {
+    onSettingsChange({ ...settings, project: projectName, team: "", board: "" });
+    onTeamOptionsChange([]);
+
+    if (!settings.connectionInfo || !projectName) {
       return;
     }
 
-    onSettingsChange({
-      ...settings,
-      connectionMode: parsed.mode,
-      connectionStatus: "connected",
-      lastConnectedAt: new Date().toISOString(),
-      organization: settings.organization.trim() || parsed.organization
-    });
+    onSetupStatusChange("loading-teams");
+    onSetupMessageChange("Discovering team boards for the selected project...");
+
+    try {
+      const result = await listAzureTeams(settings.apiBaseUrl, settings.connectionInfo, projectName);
+      onTeamOptionsChange(result.teams);
+      onSetupStatusChange("success");
+      onSetupMessageChange(
+        result.teams.length > 0
+          ? `${result.teams.length} team board option${result.teams.length === 1 ? "" : "s"} discovered.`
+          : "No team boards were returned for this project."
+      );
+    } catch (error) {
+      onSetupStatusChange("error");
+      onSetupMessageChange(error instanceof Error ? error.message : "Team board discovery failed.");
+    }
+  }
+
+  function selectTeam(teamName: string): void {
+    onSettingsChange({ ...settings, team: teamName, board: teamName });
+    onSetupStatusChange("success");
+    onSetupMessageChange(teamName ? `Selected Team: ${settings.organization}/${settings.project}/${teamName}` : "Select a team board.");
+  }
+
+  function changeSelection(): void {
+    onSettingsChange({ ...settings, project: "", team: "", board: "" });
+    onTeamOptionsChange([]);
+    onSetupMessageChange("Choose a project, then select the team board QA Assist should use.");
   }
 
   const selectedTeamReady = hasSelectedTeamBoard(settings);
+  const canSelectProject = projectOptions.length > 0;
+  const canSelectTeam = teamOptions.length > 0;
 
   return (
     <section className="panel-content">
@@ -389,7 +486,8 @@ function SettingsPanel({
           value={settings.azureServerUrl}
           onChange={(value) => updateSetting("azureServerUrl", value)}
         />
-        <SecondaryAction label="Connect" onClick={connectAzure} />
+        <SecondaryAction label={setupStatus === "connecting" ? "Connecting..." : "Connect"} disabled={setupStatus === "connecting"} onClick={connectAzure} />
+        <InfoCard title="Connection status" body={setupMessage} tone={setupStatus === "error" ? "warning" : "neutral"} />
         <TrustNote text="For local development, the API server may use a backend-only PAT. QA users do not enter tokens here." />
       </SettingsCard>
       <SettingsCard
@@ -397,15 +495,40 @@ function SettingsPanel({
         status={selectedTeamReady ? <span className="status-pill success">Selected</span> : <span className="status-pill">Needed</span>}
         body="Azure projects can have multiple team boards. QA Assist uses the selected team board for Today, Story, Run, and recommendations."
       >
-        <div className="settings-form">
-          <TextInput label="Organization" value={settings.organization} onChange={(value) => updateSetting("organization", value)} />
-          <TextInput label="Project" value={settings.project} onChange={(value) => updateSetting("project", value)} />
-          <TextInput label="Team" value={settings.team} onChange={(value) => updateSetting("team", value)} />
-          <TextInput label="Board optional" value={settings.board} onChange={(value) => updateSetting("board", value)} />
-          <TextInput label="Iteration path optional" value={settings.iterationPath} onChange={(value) => updateSetting("iterationPath", value)} />
-        </div>
+        {canSelectProject ? (
+          <SelectInput
+            label="Project"
+            value={settings.project}
+            options={projectOptions.map((project) => ({ label: project.name, value: project.name }))}
+            placeholder="Choose project"
+            onChange={(value) => void selectProject(value)}
+          />
+        ) : (
+          <InfoCard title="Projects" body="Connect with a backend token to discover projects. Manual fields remain available under Advanced local preview." />
+        )}
+        {canSelectTeam ? (
+          <SelectInput
+            label="Team board"
+            value={settings.team}
+            options={teamOptions.map((team) => ({ label: team.name, value: team.name }))}
+            placeholder="Choose team board"
+            onChange={selectTeam}
+          />
+        ) : (
+          <InfoCard title="Team boards" body="Choose a discovered project to load team boards." />
+        )}
         <SelectedTeamBanner settings={settings} />
-        <SecondaryAction label="Change" onClick={() => updateSetting("connectionStatus", "connected")} />
+        <SecondaryAction label="Change" onClick={changeSelection} />
+        <details className="advanced-settings">
+          <summary>Advanced local preview</summary>
+          <div className="settings-form">
+            <TextInput label="Organization" value={settings.organization} onChange={(value) => updateSetting("organization", value)} />
+            <TextInput label="Project" value={settings.project} onChange={(value) => updateSetting("project", value)} />
+            <TextInput label="Team" value={settings.team} onChange={(value) => updateSetting("team", value)} />
+            <TextInput label="Board optional" value={settings.board} onChange={(value) => updateSetting("board", value)} />
+            <TextInput label="Iteration path optional" value={settings.iterationPath} onChange={(value) => updateSetting("iterationPath", value)} />
+          </div>
+        </details>
       </SettingsCard>
       <SettingsCard title="QA Workflow" body="State mapping and QA identity remain user-controlled before recommendations are treated as useful.">
         <InfoGrid
@@ -546,9 +669,9 @@ function PrimaryAction({
   );
 }
 
-function SecondaryAction({ label, onClick }: { label: string; onClick: () => void }) {
+function SecondaryAction({ label, disabled, onClick }: { label: string; disabled?: boolean; onClick: () => void }) {
   return (
-    <button className="secondary-action" type="button" onClick={onClick}>
+    <button className="secondary-action" type="button" disabled={disabled} onClick={onClick}>
       {label}
     </button>
   );
@@ -684,6 +807,34 @@ function TextInput({
   );
 }
 
+function SelectInput({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: Array<{ label: string; value: string }>;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="settings-field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function TrustNote({ text }: { text: string }) {
   return <p className="trust-note">{text}</p>;
 }
@@ -714,6 +865,10 @@ function ThemeToggle({ value, onChange }: { value: ThemePreference; onChange: (t
 }
 
 function ConnectionPill({ status }: { status: AzureDevOpsConnectionStatus }) {
+  if (status === "connecting") {
+    return <span className="status-pill">Connecting</span>;
+  }
+
   if (status === "connected") {
     return <span className="status-pill success">Connected</span>;
   }
@@ -763,25 +918,6 @@ function buildCurrentQaUser(settings: ExtensionSettings): CurrentQaUserSettings 
     source: "configured-user",
     isOverride: true
   };
-}
-
-function parseAzureUrl(value: string): { mode: AzureDevOpsConnectionMode; organization: string } | undefined {
-  try {
-    const url = new URL(value.trim());
-
-    if (url.hostname === "dev.azure.com") {
-      const organization = url.pathname.split("/").filter(Boolean)[0] ?? "";
-      return organization ? { mode: "azure-devops-services", organization } : undefined;
-    }
-
-    if (url.hostname.endsWith(".visualstudio.com")) {
-      return { mode: "azure-devops-services", organization: url.hostname.replace(".visualstudio.com", "") };
-    }
-
-    return { mode: "team-foundation-server", organization: "" };
-  } catch {
-    return undefined;
-  }
 }
 
 function hasSelectedTeamBoard(settings: ExtensionSettings): boolean {

@@ -15,6 +15,7 @@ docs/prompts/0008-board-work-summary-contracts.md
 docs/prompts/0009-azure-devops-settings-board-summary-fetch.md
 docs/prompts/0010-azure-preview-validation-today-ui.md
 docs/prompts/0011-seamless-azure-setup-configuration.md
+docs/prompts/0012-azure-connection-team-discovery.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -32,3 +33,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0009-azure-devops-settings-board-summary-fetch`: backend-only Azure DevOps PAT config, read-only states and board summary preview routes, extension non-secret Azure settings, and Today board summary fetch.
 - `0010-azure-preview-validation-today-ui`: manual Azure preview validation guide, mapper resilience refinement, and calmer Today/Settings UI for real board preview data.
 - `0011-seamless-azure-setup-configuration`: product-grade Azure connection shell, selected team board setup, full configuration placeholders, and AI board briefing direction without OAuth, LLM calls, uploads, automation, or write-back.
+- `0012-azure-connection-team-discovery`: backend URL parsing, read-only Azure project/team discovery routes, extension setup flow wiring, and selected team board discovery without OAuth, write-back, LLM calls, uploads, or PAT storage in the extension.

@@ -10,6 +10,8 @@ Step 0011 changes the product-facing setup direction away from developer configu
 
 Until OAuth exists, local development may continue to use a backend-only PAT fallback. That fallback is an implementation detail of the API server, not part of the QA user setup experience.
 
+Step 0012 uses that backend-only fallback for read-only setup discovery routes. The extension sends only the Azure URL, selected connection metadata, project, and team choices to the QA Assist API. It does not receive or store the PAT. Production setup should replace this fallback with Microsoft Entra/OAuth.
+
 ## LLM Providers
 
 Production architecture should route LLM calls through the backend. LLM API keys should not live in the extension for production use.

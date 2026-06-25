@@ -6,7 +6,8 @@
 - Use backend-mediated LLM access for product architecture.
 - Store future tokens encrypted server-side with least-privilege scopes.
 - For local development, Azure DevOps PATs stay in the API server environment only and must never be entered into extension settings.
-- Product setup should use Azure/Microsoft delegated auth later. The Step 0011 extension shell may show connection status and selected team board, but it must not collect secrets.
+- Product setup should use Azure/Microsoft delegated auth later. The extension may show connection status, discovered projects, discovered team boards, and selected team board, but it must not collect secrets.
+- Step 0012 discovery routes are read-only and must not print PATs, Authorization headers, private work item content, or customer data.
 - Keep browser host permissions limited to needed Azure DevOps domains.
 - Do not silently exfiltrate board, story, file, or evidence data.
 - Do not persist raw board/story data by default.

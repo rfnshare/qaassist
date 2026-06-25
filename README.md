@@ -39,9 +39,9 @@ Browser Extension
 
 ## Current Status
 
-Step 0011 seamless Azure setup and configuration shell is implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0012 Azure connection and team discovery routes are implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
-Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Settings now presents a product-grade configuration hub for Azure connection, team board selection, QA workflow, test management, board knowledge, AI analysis, automation, and privacy/approval. Today starts with selected team board context and can still request a read-only board condition preview from the local backend.
+Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Settings now starts with an Azure DevOps Services or TFS URL, checks the connection through the backend, discovers Azure DevOps Services projects and team boards, and keeps manual setup under advanced local preview. Today starts with selected team board context and can still request a read-only board condition preview from the local backend.
 
 The Azure DevOps PAT remains a local development backend-only fallback and is never requested by the extension. The product direction is seamless Azure/Microsoft auth later through Microsoft Entra/OAuth. Azure Test Plans write-back, OAuth, LLM calls, file upload, database/storage, comments, bug creation, automation generation, and QA analysis logic are intentionally not implemented yet.
 
@@ -113,8 +113,8 @@ Test the simplified QA Assist side panel and Azure DevOps page detection locally
 4. Review the `Today`, `Story`, `Run`, and `Settings` sections.
 5. Confirm the `Story` section shows the organization, project, work item ID, URL, and detection timestamp.
 6. In `Settings`, test `System`, `Light`, and `Dark` theme modes.
-7. In `Settings`, enter an Azure DevOps Services or TFS URL, click `Connect`, and manually select organization, project, and team board.
-8. Use the advanced local development area only if the API base URL differs from `http://127.0.0.1:4317`.
+7. In `Settings`, enter an Azure DevOps Services or TFS URL and click `Connect`.
+8. Select a discovered project and team board, or use advanced local preview only when discovery cannot run in local development.
 9. In `Today`, click `Fetch board condition`.
 10. Confirm real counts only appear after a successful backend fetch. If backend PAT is missing, the UI should show `Azure DevOps backend token is not configured. Add it to local .env on the API server.`
 

@@ -7,8 +7,66 @@ export type AzureDevOpsConnectionMode =
 
 export type AzureDevOpsConnectionStatus =
   | "not-connected"
+  | "connecting"
   | "connected"
   | "needs-attention";
+
+export type AzureDevOpsConnectionInput = {
+  url: string;
+};
+
+export type AzureDevOpsConnectionInfo = {
+  source: "azure-devops";
+  sourceUrl: string;
+  serverUrl: string;
+  mode: AzureDevOpsConnectionMode;
+  status: AzureDevOpsConnectionStatus;
+  displayLabel: string;
+  organization?: string;
+  collection?: string;
+  project?: string;
+  connectedAt?: IsoDateTimeString;
+  warnings?: string[];
+};
+
+export type AzureDevOpsProjectOption = {
+  id?: string;
+  name: string;
+  description?: string;
+  url?: string;
+};
+
+export type AzureDevOpsTeamOption = {
+  id?: string;
+  name: string;
+  description?: string;
+  url?: string;
+  projectName: string;
+};
+
+export type SelectedAzureDevOpsTeamBoard = {
+  source: "azure-devops";
+  sourceUrl: string;
+  mode: AzureDevOpsConnectionMode;
+  organization?: string;
+  collection?: string;
+  project: string;
+  team: string;
+  board?: string;
+  iterationPath?: string;
+  displayLabel: string;
+  selectedAt: IsoDateTimeString;
+};
+
+export type AzureDevOpsSetupState = {
+  connection?: AzureDevOpsConnectionInfo;
+  projects: AzureDevOpsProjectOption[];
+  teams: AzureDevOpsTeamOption[];
+  selectedTeamBoard?: SelectedAzureDevOpsTeamBoard;
+  status: AzureDevOpsConnectionStatus;
+  updatedAt?: IsoDateTimeString;
+  warnings?: string[];
+};
 
 export type AzureDevOpsBoardIdentity = {
   source: "azure-devops";

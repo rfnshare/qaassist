@@ -1,7 +1,22 @@
 import type { IsoDateTimeString } from "../common/timestamps.js";
 
+export type AzureDevOpsConnectionMode =
+  | "azure-devops-services"
+  | "team-foundation-server"
+  | "local-dev-backend";
+
+export type AzureDevOpsConnectionStatus =
+  | "not-connected"
+  | "connected"
+  | "needs-attention";
+
 export type AzureDevOpsBoardIdentity = {
   source: "azure-devops";
+  serverUrl?: string;
+  connectionMode?: AzureDevOpsConnectionMode;
+  connectionStatus?: AzureDevOpsConnectionStatus;
+  lastConnectedAt?: IsoDateTimeString;
+  displayLabel?: string;
   organization: string;
   project: string;
   team?: string;

@@ -6,6 +6,10 @@ The production direction is Azure DevOps OAuth or another organization-approved 
 
 For local development only, PAT-based configuration may be allowed through backend environment variables. PATs must never be committed, stored in docs, or placed in the browser extension.
 
+Step 0011 changes the product-facing setup direction away from developer configuration. QA users should enter an Azure DevOps Services or Team Foundation Server URL, connect through a future Microsoft Entra/OAuth flow, and select a project/team board. The extension must not ask for PATs, tokens, or `.env` values.
+
+Until OAuth exists, local development may continue to use a backend-only PAT fallback. That fallback is an implementation detail of the API server, not part of the QA user setup experience.
+
 ## LLM Providers
 
 Production architecture should route LLM calls through the backend. LLM API keys should not live in the extension for production use.

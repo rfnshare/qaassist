@@ -5,9 +5,11 @@
 - Do not store production LLM keys in the browser extension.
 - Use backend-mediated LLM access for product architecture.
 - Store future tokens encrypted server-side with least-privilege scopes.
-- For local Step 0009 development, Azure DevOps PATs stay in the API server `.env` only and must never be entered into extension settings.
+- For local development, Azure DevOps PATs stay in the API server environment only and must never be entered into extension settings.
+- Product setup should use Azure/Microsoft delegated auth later. The Step 0011 extension shell may show connection status and selected team board, but it must not collect secrets.
 - Keep browser host permissions limited to needed Azure DevOps domains.
 - Do not silently exfiltrate board, story, file, or evidence data.
 - Do not persist raw board/story data by default.
 - Future audit logs should avoid raw story content by default.
 - All write-back actions require explicit user approval.
+- AI analysis, board knowledge upload, Azure Test Plans creation, bug creation, comments, and repository changes remain inactive until explicit review and approval flows exist.

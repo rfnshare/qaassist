@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type {
+  AzureDevOpsConnectionMode,
+  AzureDevOpsConnectionStatus,
   BoardScope,
   BoardSummary,
   CurrentQaUserSettings,
@@ -18,9 +21,14 @@ type FetchStatus = "idle" | "loading" | "success" | "error";
 
 type ExtensionSettings = {
   apiBaseUrl: string;
+  azureServerUrl: string;
+  connectionMode: AzureDevOpsConnectionMode;
+  connectionStatus: AzureDevOpsConnectionStatus;
+  lastConnectedAt: string;
   organization: string;
   project: string;
   team: string;
+  board: string;
   iterationPath: string;
   currentQaUserDisplayName: string;
   currentQaUserEmail: string;
@@ -37,9 +45,14 @@ const SETTINGS_STORAGE_KEY = "qaAssistSettings";
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:4317";
 const DEFAULT_SETTINGS: ExtensionSettings = {
   apiBaseUrl: DEFAULT_API_BASE_URL,
+  azureServerUrl: "",
+  connectionMode: "azure-devops-services",
+  connectionStatus: "not-connected",
+  lastConnectedAt: "",
   organization: "",
   project: "",
   team: "",
+  board: "",
   iterationPath: "",
   currentQaUserDisplayName: "",
   currentQaUserEmail: ""
@@ -53,7 +66,7 @@ export function App() {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => getSystemTheme());
   const [settings, setSettings] = useState<ExtensionSettings>(DEFAULT_SETTINGS);
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle");
-  const [fetchMessage, setFetchMessage] = useState<string>("Board summary has not been fetched yet.");
+  const [fetchMessage, setFetchMessage] = useState<string>("Board condition has not been fetched yet.");
   const [preview, setPreview] = useState<BoardSummaryPreviewResponse | null>(null);
 
   useEffect(() => {
@@ -121,14 +134,14 @@ export function App() {
   }, []);
 
   async function fetchBoardSummary(): Promise<void> {
-    if (!settings.organization.trim() || !settings.project.trim()) {
+    if (!hasSelectedTeamBoard(settings)) {
       setFetchStatus("error");
-      setFetchMessage("Complete Azure organization and project in Settings before fetching board summary.");
+      setFetchMessage("Connect Azure and select a team board before fetching board condition.");
       return;
     }
 
     setFetchStatus("loading");
-    setFetchMessage("Fetching live Azure DevOps board summary...");
+    setFetchMessage("Fetching live Azure DevOps board condition...");
 
     try {
       const response = await fetch(`${settings.apiBaseUrl.replace(/\/$/, "")}/azure-devops/board-summary/preview`, {
@@ -146,15 +159,15 @@ export function App() {
       const payload = (await response.json()) as BoardSummaryPreviewResponse | { error?: { message?: string } };
 
       if (!response.ok) {
-        throw new Error("error" in payload ? payload.error?.message : "Board summary fetch failed.");
+        throw new Error("error" in payload ? payload.error?.message : "Board condition fetch failed.");
       }
 
       setPreview(payload as BoardSummaryPreviewResponse);
       setFetchStatus("success");
-      setFetchMessage("Fetched live Azure DevOps board summary.");
+      setFetchMessage("Fetched live Azure DevOps board condition.");
     } catch (error) {
       setFetchStatus("error");
-      setFetchMessage(error instanceof Error ? error.message : "Board summary fetch failed.");
+      setFetchMessage(error instanceof Error ? error.message : "Board condition fetch failed.");
     }
   }
 
@@ -174,7 +187,8 @@ export function App() {
           fetchStatus,
           fetchMessage,
           preview,
-          onFetchBoardSummary: fetchBoardSummary
+          onFetchBoardSummary: fetchBoardSummary,
+          onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
     </main>
@@ -193,6 +207,7 @@ function renderPanel(props: {
   fetchMessage: string;
   preview: BoardSummaryPreviewResponse | null;
   onFetchBoardSummary: () => void;
+  onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
     case "today":
@@ -203,6 +218,7 @@ function renderPanel(props: {
           fetchMessage={props.fetchMessage}
           preview={props.preview}
           onFetchBoardSummary={props.onFetchBoardSummary}
+          onOpenSettings={props.onOpenSettings}
         />
       );
     case "story":
@@ -226,52 +242,59 @@ function TodayPanel({
   fetchStatus,
   fetchMessage,
   preview,
-  onFetchBoardSummary
+  onFetchBoardSummary,
+  onOpenSettings
 }: {
   settings: ExtensionSettings;
   fetchStatus: FetchStatus;
   fetchMessage: string;
   preview: BoardSummaryPreviewResponse | null;
   onFetchBoardSummary: () => void;
+  onOpenSettings: () => void;
 }) {
-  const settingsReady = Boolean(settings.organization.trim() && settings.project.trim() && settings.apiBaseUrl.trim());
+  const selectedTeamReady = hasSelectedTeamBoard(settings);
   const metrics = preview?.boardSummary.metrics ?? [];
   const stateBuckets = preview ? getStateBucketEntries(preview.boardSummary) : [];
 
   return (
     <section className="panel-content">
-      <PanelIntro eyebrow="Today" title="Start with the real board picture." />
+      <PanelIntro eyebrow="Today" title={selectedTeamReady ? "Start with this team's board condition." : "Set up the Azure board first."} />
+      <SelectedTeamBanner settings={settings} />
       <PrimaryAction
-        label={fetchStatus === "loading" ? "Fetching board summary..." : "Fetch board summary"}
-        helper={settingsReady ? "Read-only Azure DevOps preview" : "Complete Settings first"}
+        label={selectedTeamReady ? (fetchStatus === "loading" ? "Fetching board condition..." : "Fetch board condition") : "Set up Azure board"}
+        helper={selectedTeamReady ? "Read-only Azure DevOps preview for the selected team" : "Connect Azure and select a team board to start."}
         disabled={fetchStatus === "loading"}
-        onClick={onFetchBoardSummary}
+        onClick={selectedTeamReady ? onFetchBoardSummary : onOpenSettings}
       />
-      <InfoCard title="Fetch status" body={fetchMessage} tone={fetchStatus === "error" ? "warning" : "neutral"} />
+      <InfoCard
+        title="AI board briefing"
+        body="LLM summary not active yet. After Azure and AI setup, this will explain what changed, what is ready to retest, and what work should be handled first."
+      />
+      {selectedTeamReady ? (
+        <InfoCard title="Fetch status" body={fetchMessage} tone={fetchStatus === "error" ? "warning" : "neutral"} />
+      ) : (
+        <InfoCard title="Setup needed" body="Connect Azure and select a team board to start. QA Assist uses the selected team board for Today, Story, Run, and recommendations." tone="warning" />
+      )}
       {preview ? (
         <>
           <SnapshotMeta summary={preview.boardSummary} />
-          <InfoGrid items={metrics.map((metric) => [metric.label, formatMetric(metric.value, metric.sourceDescription)])} />
+          <InfoGrid items={metrics.map((metric) => [renameMetric(metric.label), formatMetric(metric.value, metric.sourceDescription)])} />
           <StateBucketGrid buckets={stateBuckets} />
-          <WorkItemsList title="My QA work" items={preview.boardSummary.myWork} />
-          <WorkItemsList title="Resolved bugs ready to retest" items={preview.boardSummary.resolvedBugsReadyToRetest} />
-          {preview.recommendation ? (
-            <RecommendationCard recommendation={preview.recommendation} />
-          ) : null}
+          <WorkItemsList title="My assigned QA work" items={preview.boardSummary.myWork} />
+          <WorkItemsList title="Ready to retest" items={preview.boardSummary.resolvedBugsReadyToRetest} />
+          {preview.recommendation ? <RecommendationCard recommendation={preview.recommendation} /> : null}
         </>
       ) : (
-        <>
-          <InfoGrid
-            items={[
-              ["Board summary", "Live Azure DevOps counts will appear here after fetch."],
-              ["My QA work", "Configured QA user matching runs after fetch."],
-              ["Ready to retest", "Resolved bugs ready to retest appear after fetch."],
-              ["Suggested next work", "Recommendation stays explainable and user-confirmed."]
-            ]}
-          />
-          <TrustNote text="No fake board counts are shown. PAT stays on the API server; the extension stores only non-secret settings." />
-        </>
+        <InfoGrid
+          items={[
+            ["Board condition", selectedTeamReady ? "Live Azure DevOps board condition appears after fetch." : "Waiting for selected team board."],
+            ["Ready to retest", "Resolved bugs ready for QA retest will appear after fetch."],
+            ["My assigned QA work", "Configured QA user matching runs after fetch."],
+            ["Suggested next work", "Recommendation stays explainable and needs confirmation."]
+          ]}
+        />
       )}
+      <TrustNote text="No fake board data is shown. All write-back and LLM-assisted recommendations remain inactive until explicitly implemented and approved." />
     </section>
   );
 }
@@ -331,32 +354,125 @@ function SettingsPanel({
     onSettingsChange({ ...settings, [key]: value });
   }
 
+  function connectAzure(): void {
+    const parsed = parseAzureUrl(settings.azureServerUrl);
+
+    if (!parsed) {
+      onSettingsChange({ ...settings, connectionStatus: "needs-attention" });
+      return;
+    }
+
+    onSettingsChange({
+      ...settings,
+      connectionMode: parsed.mode,
+      connectionStatus: "connected",
+      lastConnectedAt: new Date().toISOString(),
+      organization: settings.organization.trim() || parsed.organization
+    });
+  }
+
+  const selectedTeamReady = hasSelectedTeamBoard(settings);
+
   return (
     <section className="panel-content">
-      <PanelIntro eyebrow="Settings" title="Configure local read-only Azure access." />
+      <PanelIntro eyebrow="Settings" title="Connect Azure, then configure QA Assist." />
       <ThemeToggle value={themePreference} onChange={onThemeChange} />
-      <InfoCard
-        title="Backend token check"
-        body="QA Assist checks whether the API server has an Azure DevOps PAT only when you fetch. The extension never stores or asks for the PAT."
-      />
-      <section className="settings-form" aria-label="Azure DevOps local settings">
-        <TextInput label="API base URL" help="Local backend, usually http://127.0.0.1:4317" value={settings.apiBaseUrl} onChange={(value) => updateSetting("apiBaseUrl", value)} />
-        <TextInput label="Azure organization" help="The org segment from dev.azure.com/{organization}" value={settings.organization} onChange={(value) => updateSetting("organization", value)} />
-        <TextInput label="Azure project" help="The Azure DevOps project name used by the board" value={settings.project} onChange={(value) => updateSetting("project", value)} />
-        <TextInput label="Azure team optional" value={settings.team} onChange={(value) => updateSetting("team", value)} />
-        <TextInput label="Iteration path optional" value={settings.iterationPath} onChange={(value) => updateSetting("iterationPath", value)} />
+      <SettingsCard
+        title="Connect Azure"
+        status={<ConnectionPill status={settings.connectionStatus} />}
+        body="Enter the Azure DevOps Services or Team Foundation Server URL your team uses. OAuth is planned later; this shell only validates the shape of the URL."
+      >
         <TextInput
-          label="Current QA display name optional"
-          value={settings.currentQaUserDisplayName}
-          onChange={(value) => updateSetting("currentQaUserDisplayName", value)}
+          label="Azure DevOps Services or TFS URL"
+          placeholder="https://dev.azure.com/your-org"
+          help="For TFS, use a URL like https://your-server/tfs/collection."
+          value={settings.azureServerUrl}
+          onChange={(value) => updateSetting("azureServerUrl", value)}
         />
-        <TextInput
-          label="Current QA email optional"
-          value={settings.currentQaUserEmail}
-          onChange={(value) => updateSetting("currentQaUserEmail", value)}
+        <SecondaryAction label="Connect" onClick={connectAzure} />
+        <TrustNote text="For local development, the API server may use a backend-only PAT. QA users do not enter tokens here." />
+      </SettingsCard>
+      <SettingsCard
+        title="Select Team Board"
+        status={selectedTeamReady ? <span className="status-pill success">Selected</span> : <span className="status-pill">Needed</span>}
+        body="Azure projects can have multiple team boards. QA Assist uses the selected team board for Today, Story, Run, and recommendations."
+      >
+        <div className="settings-form">
+          <TextInput label="Organization" value={settings.organization} onChange={(value) => updateSetting("organization", value)} />
+          <TextInput label="Project" value={settings.project} onChange={(value) => updateSetting("project", value)} />
+          <TextInput label="Team" value={settings.team} onChange={(value) => updateSetting("team", value)} />
+          <TextInput label="Board optional" value={settings.board} onChange={(value) => updateSetting("board", value)} />
+          <TextInput label="Iteration path optional" value={settings.iterationPath} onChange={(value) => updateSetting("iterationPath", value)} />
+        </div>
+        <SelectedTeamBanner settings={settings} />
+        <SecondaryAction label="Change" onClick={() => updateSetting("connectionStatus", "connected")} />
+      </SettingsCard>
+      <SettingsCard title="QA Workflow" body="State mapping and QA identity remain user-controlled before recommendations are treated as useful.">
+        <InfoGrid
+          items={[
+            ["State mapping", "Map In QA, Ready to Test, Resolved, Blocked, and Ready for UAT after Azure state discovery is added."],
+            ["Current QA user", "Set display name or email for assigned-to matching."],
+            ["Assigned-to matching", "Assignment is one signal, not the final truth."]
+          ]}
         />
-      </section>
-      <TrustNote text="Do not enter PATs here. Azure DevOps PAT belongs only in the API server local .env file." />
+        <div className="settings-form">
+          <TextInput label="Current QA display name optional" value={settings.currentQaUserDisplayName} onChange={(value) => updateSetting("currentQaUserDisplayName", value)} />
+          <TextInput label="Current QA email optional" value={settings.currentQaUserEmail} onChange={(value) => updateSetting("currentQaUserEmail", value)} />
+        </div>
+      </SettingsCard>
+      <SettingsCard title="Test Management" body="Azure Test Plans is first, but no test case write-back is active yet.">
+        <InfoGrid
+          items={[
+            ["Destination", "Test plan and suite selection placeholder."],
+            ["Story links", "Approved test cases can later link back to the story."],
+            ["Approval", "Creating or updating test cases will require explicit user approval."]
+          ]}
+        />
+      </SettingsCard>
+      <SettingsCard title="Board Knowledge" body="Board-wise knowledge is future scoped context, not active upload/storage.">
+        <InfoGrid
+          items={[
+            ["Requirement upload", "Placeholder for PRDs and requirement files scoped to the selected team board."],
+            ["Meeting transcript", "Placeholder for transcript context after explicit upload."],
+            ["BA Q&A and product rules", "Placeholder for confirmed answers and rules."]
+          ]}
+        />
+      </SettingsCard>
+      <SettingsCard title="AI Analysis" body="AI support will be backend-mediated and evidence-bound. No LLM calls are active yet.">
+        <InfoGrid
+          items={[
+            ["AI board briefing", "Will explain what changed, what needs QA attention, and why."],
+            ["Story requirement analysis", "Will label source-backed, assumption, and needs confirmation output."],
+            ["Guardrails", "Unverified output must never be treated as fact."]
+          ]}
+        />
+      </SettingsCard>
+      <SettingsCard title="Automation" body="Automation setup is a later capability after approved test cases.">
+        <InfoGrid
+          items={[
+            ["Repo options", "Local repo, GitHub, Azure Repos, QA Assist-managed workspace, or manual export."],
+            ["Playwright first later", "No automation generation or execution is active now."]
+          ]}
+        />
+      </SettingsCard>
+      <SettingsCard title="Privacy & Approval" body="QA Assist stays read-only until a user explicitly approves external actions.">
+        <InfoGrid
+          items={[
+            ["No silent write-back", "Azure Test Plans, bugs, comments, files, and repos require approval."],
+            ["Evidence-bound output", "Source-backed, user-confirmed, assumption, and needs confirmation labels stay central."],
+            ["AI privacy", "Future AI calls should minimize and redact context before backend-mediated analysis."]
+          ]}
+        />
+        <details className="advanced-settings">
+          <summary>Advanced local development</summary>
+          <TextInput
+            label="API base URL"
+            help="Local backend for read-only preview, usually http://127.0.0.1:4317. PATs stay backend-only."
+            value={settings.apiBaseUrl}
+            onChange={(value) => updateSetting("apiBaseUrl", value)}
+          />
+        </details>
+      </SettingsCard>
     </section>
   );
 }
@@ -430,6 +546,39 @@ function PrimaryAction({
   );
 }
 
+function SecondaryAction({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button className="secondary-action" type="button" onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
+function SettingsCard({
+  title,
+  body,
+  status,
+  children
+}: {
+  title: string;
+  body: string;
+  status?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="settings-card">
+      <div className="card-row">
+        <div>
+          <h3>{title}</h3>
+          <p>{body}</p>
+        </div>
+        {status}
+      </div>
+      <div className="settings-card-body">{children}</div>
+    </section>
+  );
+}
+
 function InfoGrid({ items }: { items: Array<[string, string]> }) {
   return (
     <div className="info-grid">
@@ -457,7 +606,7 @@ function WorkItemsList({ title, items }: { title: string; items: BoardSummary["m
         <ul className="work-list">
           {items.slice(0, 5).map((item) => (
             <li key={`${item.source}-${item.workItemId}`}>
-              <span>#{item.workItemId} · {item.state}</span>
+              <span>#{item.workItemId} - {item.state}</span>
               <strong title={item.title}>{truncateTitle(item.title)}</strong>
             </li>
           ))}
@@ -473,8 +622,8 @@ function SnapshotMeta({ summary }: { summary: BoardSummary }) {
   return (
     <article className="snapshot-card">
       <div>
-        <span className="meta-label">Board</span>
-        <strong>{summary.selectedBoard.organization} / {summary.selectedBoard.project}</strong>
+        <span className="meta-label">Selected Team</span>
+        <strong>{formatBoardLabel(summary.selectedBoard)}</strong>
       </div>
       <div>
         <span className="meta-label">Fetched</span>
@@ -507,9 +656,7 @@ function RecommendationCard({ recommendation }: { recommendation: WorkRecommenda
         <h3>Suggested next work</h3>
         <span className="status-pill">Needs confirmation</span>
       </div>
-      <p>
-        {item ? `#${item.workItemId} - ${truncateTitle(item.title)}` : "No recommended item returned."}
-      </p>
+      <p>{item ? `#${item.workItemId} - ${truncateTitle(item.title)}` : "No recommended item returned."}</p>
       <p>{recommendation.reason}</p>
     </article>
   );
@@ -518,18 +665,20 @@ function RecommendationCard({ recommendation }: { recommendation: WorkRecommenda
 function TextInput({
   label,
   help,
+  placeholder,
   value,
   onChange
 }: {
   label: string;
   help?: string;
+  placeholder?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <label className="settings-field">
       <span>{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} />
+      <input placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
       {help ? <small>{help}</small> : null}
     </label>
   );
@@ -564,12 +713,38 @@ function ThemeToggle({ value, onChange }: { value: ThemePreference; onChange: (t
   );
 }
 
+function ConnectionPill({ status }: { status: AzureDevOpsConnectionStatus }) {
+  if (status === "connected") {
+    return <span className="status-pill success">Connected</span>;
+  }
+
+  if (status === "needs-attention") {
+    return <span className="status-pill warning">Needs attention</span>;
+  }
+
+  return <span className="status-pill">Not connected</span>;
+}
+
+function SelectedTeamBanner({ settings }: { settings: ExtensionSettings }) {
+  if (!hasSelectedTeamBoard(settings)) {
+    return <InfoCard title="Selected Team" body="No team board selected yet." tone="warning" />;
+  }
+
+  return <InfoCard title="Selected Team" body={formatSettingsBoardLabel(settings)} />;
+}
+
 function buildBoardScope(settings: ExtensionSettings): BoardScope {
   return {
     source: "azure-devops",
+    serverUrl: normalizeOptional(settings.azureServerUrl),
+    connectionMode: settings.connectionMode,
+    connectionStatus: settings.connectionStatus,
+    lastConnectedAt: normalizeOptional(settings.lastConnectedAt),
+    displayLabel: formatSettingsBoardLabel(settings),
     organization: settings.organization.trim(),
     project: settings.project.trim(),
     team: normalizeOptional(settings.team),
+    board: normalizeOptional(settings.board),
     iterationPath: normalizeOptional(settings.iterationPath)
   };
 }
@@ -590,6 +765,37 @@ function buildCurrentQaUser(settings: ExtensionSettings): CurrentQaUserSettings 
   };
 }
 
+function parseAzureUrl(value: string): { mode: AzureDevOpsConnectionMode; organization: string } | undefined {
+  try {
+    const url = new URL(value.trim());
+
+    if (url.hostname === "dev.azure.com") {
+      const organization = url.pathname.split("/").filter(Boolean)[0] ?? "";
+      return organization ? { mode: "azure-devops-services", organization } : undefined;
+    }
+
+    if (url.hostname.endsWith(".visualstudio.com")) {
+      return { mode: "azure-devops-services", organization: url.hostname.replace(".visualstudio.com", "") };
+    }
+
+    return { mode: "team-foundation-server", organization: "" };
+  } catch {
+    return undefined;
+  }
+}
+
+function hasSelectedTeamBoard(settings: ExtensionSettings): boolean {
+  return Boolean(settings.organization.trim() && settings.project.trim() && settings.team.trim());
+}
+
+function formatSettingsBoardLabel(settings: ExtensionSettings): string {
+  return `${settings.organization.trim()}/${settings.project.trim()}/${settings.team.trim()}`;
+}
+
+function formatBoardLabel(board: BoardScope): string {
+  return board.displayLabel ?? `${board.organization}/${board.project}/${board.team ?? "Team not selected"}`;
+}
+
 function normalizeOptional(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
@@ -598,6 +804,13 @@ function normalizeOptional(value: string): string | undefined {
 function formatMetric(value: string | number | undefined, sourceDescription: string | undefined): string {
   const metricValue = value === undefined ? "Not returned" : String(value);
   return sourceDescription ? `${metricValue}. ${sourceDescription}` : metricValue;
+}
+
+function renameMetric(label: string): string {
+  if (label === "Candidate work items") return "Board condition";
+  if (label === "My QA work") return "My assigned QA work";
+  if (label === "Resolved bugs ready to retest") return "Ready to retest";
+  return label;
 }
 
 function getStateBucketEntries(summary: BoardSummary): Array<[string, number | undefined]> {

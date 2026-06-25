@@ -21,6 +21,7 @@ QA Assist should feel like a QA cockpit, not a separate dashboard. The user shou
 
 - Azure DevOps Boards is first platform.
 - Azure Test Plans is first test management target when Azure is configured.
+- Setup should feel like a product connection flow: enter Azure DevOps Services or TFS URL, connect, choose organization/project/team board, show `Selected Team: {organization}/{project}/{team}`, and allow change.
 - Later test targets include TestRail, Zephyr, custom Markdown, and export.
 - Azure state mapping will be configurable for In QA, Ready to Test, Resolved, Blocked, and Ready for UAT.
 - Current QA user detection will later use Microsoft/Azure identity; early settings may use configured QA user or assigned-to override.
@@ -28,6 +29,12 @@ QA Assist should feel like a QA cockpit, not a separate dashboard. The user shou
 - Requirement files and board memory are scoped to the selected board.
 - Suggestions are not final. User confirmation is final.
 - Nothing writes back to Azure DevOps, Azure Test Plans, bugs, comments, repositories, or automation without explicit approval.
+
+## Configuration Shell
+
+Step 0011 introduces the product configuration shell inside Settings. It keeps the four-section side panel but organizes setup into Connect Azure, Select Team Board, QA Workflow, Test Management, Board Knowledge, AI Analysis, Automation, and Privacy & Approval cards. The shell does not implement OAuth, discovery, uploads, LLM calls, write-back, or automation. It makes the future path visible without asking QA users to understand backend URLs, PATs, or `.env` files.
+
+Azure projects can have multiple team boards, so project selection alone is not enough. QA Assist should treat the selected team board as the working scope for Today, Story, Run, recommendations, board knowledge, and future test management defaults.
 
 ## Board Awareness Contracts
 

@@ -4,10 +4,10 @@ QA Assist uses a simplified four-section side panel designed for a narrow browse
 
 ## Primary Sections
 
-1. Today helps the QA engineer orient quickly with setup status, future board summary placeholders, and one clear next action.
+1. Today helps the QA engineer orient quickly with selected team board status, board condition, ready-to-retest work, assigned QA work, future AI board briefing, and one clear next action.
 2. Story focuses on the currently detected Azure DevOps work item and future requirement review, scope, and test case approval.
 3. Run prepares the future manual testing companion, evidence capture, bug creation, and automation candidate flow.
-4. Settings keeps theme, Azure DevOps connection, board mapping, QA identity, Azure Test Plans, board knowledge, and privacy placeholders compact.
+4. Settings keeps theme, Azure connection, team board selection, QA workflow, Azure Test Plans, board knowledge, AI analysis, automation, privacy, approval, and advanced local development settings compact.
 
 ## Interaction Model
 
@@ -18,3 +18,9 @@ Progressive disclosure matters because QA Assist will eventually cover board awa
 ## Trust Rules
 
 Preview values must be clearly labeled as preview-only or not connected until Azure DevOps fetch is implemented. Do not show fake counts, fake story titles, fake test cases, or fake analysis as real data.
+
+## Setup Flow
+
+Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.
+
+After a team board is selected, Today should show `Selected Team: {organization}/{project}/{team}` and keep read-only board condition preview available. AI board briefing remains a placeholder and must clearly say LLM summary is not active yet.

@@ -54,6 +54,8 @@ The Step 0005 extension detection boundary is URL-only. It parses supported Azur
 
 Step 0009 keeps the simplified Today, Story, Run, and Settings flow. Settings stores only non-secret local values. Today fetches real board summary data only through the backend when the API and Azure DevOps PAT are configured.
 
+Step 0011 reshapes Settings into a product configuration hub. The extension can store non-secret Azure setup values such as server URL, connection mode/status, selected organization, project, team, board, iteration path, current QA user, and advanced local API base URL. The selected team board is the working scope for Today, Story, Run, recommendations, board knowledge, and later test management defaults. The shell does not implement OAuth, discovery, uploads, LLM calls, write-back, database persistence, or automation integration.
+
 ## Backend API
 
 The backend mediates calls to Azure DevOps and LLM providers. It is responsible for config loading, auth flow handling, request validation, structured error responses, and privacy boundaries.
@@ -84,9 +86,13 @@ The Azure DevOps adapter fetches work item data and normalizes platform-specific
 
 Step 0009 adds backend-only read operations for Azure DevOps states and board summary preview. The preview uses WIQL to find candidate work item IDs, Work Items Batch to fetch selected fields, and mappers to produce `BoardSummary`, `QaWorkQueue`, and `WorkRecommendation` contracts.
 
+Future Step 0012 routes should add read-only Azure connection and team board discovery so the Step 0011 manual setup shell can become a guided selection flow.
+
 ## LLM Gateway
 
 The LLM gateway abstracts provider-specific calls. Production architecture should avoid storing LLM secrets in the extension. The gateway should support mock providers for deterministic development and testing.
+
+Step 0011 adds only UI and documentation placeholders for AI board briefing. The future briefing should be backend-mediated, structured, source-labeled, privacy-filtered, and explicitly marked as not final until the user confirms it.
 
 ## QA Engine
 

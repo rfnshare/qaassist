@@ -14,6 +14,7 @@ docs/prompts/0007-simplified-ui-dark-mode.md
 docs/prompts/0008-board-work-summary-contracts.md
 docs/prompts/0009-azure-devops-settings-board-summary-fetch.md
 docs/prompts/0010-azure-preview-validation-today-ui.md
+docs/prompts/0011-seamless-azure-setup-configuration.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -30,3 +31,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0008-board-work-summary-contracts`: shared contracts for board summaries, work queues, Azure DevOps settings, current QA user, Azure Test Plans, board knowledge, and work recommendations.
 - `0009-azure-devops-settings-board-summary-fetch`: backend-only Azure DevOps PAT config, read-only states and board summary preview routes, extension non-secret Azure settings, and Today board summary fetch.
 - `0010-azure-preview-validation-today-ui`: manual Azure preview validation guide, mapper resilience refinement, and calmer Today/Settings UI for real board preview data.
+- `0011-seamless-azure-setup-configuration`: product-grade Azure connection shell, selected team board setup, full configuration placeholders, and AI board briefing direction without OAuth, LLM calls, uploads, automation, or write-back.

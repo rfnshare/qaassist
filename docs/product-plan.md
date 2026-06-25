@@ -29,6 +29,16 @@ QA Assist should feel like a QA cockpit, not a separate dashboard. The user shou
 - Suggestions are not final. User confirmation is final.
 - Nothing writes back to Azure DevOps, Azure Test Plans, bugs, comments, repositories, or automation without explicit approval.
 
+## Board Awareness Contracts
+
+The simplified Today view will eventually be backed by shared contracts:
+
+- `BoardSummary` for selected-board condition, state buckets, data freshness, my work, resolved bugs ready to retest, and open risks.
+- `QaWorkQueue` for bucketed work items and safe work-item summaries.
+- `WorkRecommendation` for explainable suggested next work that still requires user confirmation.
+
+These contracts do not fetch real Azure DevOps data yet. They prepare the data model for the next Azure board fetch step without allowing fake UI counts or automatic work selection.
+
 ## Safety Principle
 
 QA Assist must be evidence-bound and human-approved. Generated content should be labeled as source-backed, user-confirmed, assumption, or needs confirmation. Open questions remain open until the user confirms the answer.

@@ -39,9 +39,11 @@ Browser Extension
 
 ## Current Status
 
-Step 0007 simplified UI and dark mode shell is implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0008 board/work summary contracts are implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
-Azure DevOps URL-only work item detection exists in the extension. The side panel now uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Azure DevOps board fetch, Azure Test Plans, auth, LLM calls, file upload, database/storage, write-back, automation generation, and QA analysis logic are intentionally not implemented yet.
+Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Shared contracts now define the future board summary, work queue, state mapping, current QA user, Azure Test Plans destination, board knowledge files, and explainable work recommendation models.
+
+Azure DevOps board fetch, Azure Test Plans write-back, auth, LLM calls, file upload, database/storage, write-back, automation generation, and QA analysis logic are intentionally not implemented yet.
 
 ## Local Development
 

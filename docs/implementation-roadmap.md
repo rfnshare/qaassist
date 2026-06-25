@@ -8,16 +8,13 @@
 - 0004 Shared contracts.
 - 0005 Azure DevOps URL-only page detection.
 - 0006 Product replan, security foundation, and QA cockpit UI shell.
-
-## 0007 Simplified UI Redesign And Dark Mode
-
-Implemented for review in Step 0007.
-
-Simplify the extension side panel into Today, Story, Run, and Settings sections. Add a calm small-window-first visual system, one primary action per main screen, clear preview labels, and system/light/dark theme support.
+- 0007 Simplified UI redesign and dark mode.
 
 ## 0008 Board/Work Summary Contracts
 
-Add contracts for board summary, work queue, state mapping, user signals, and preview-safe board condition data.
+Implemented for review in Step 0008.
+
+Add shared contracts for board summary, work queue, state mapping, current QA user settings, Azure Test Plans destination, board-scoped knowledge files, and explainable work recommendations.
 
 ## 0009 Azure DevOps Settings And Board Summary Fetch
 

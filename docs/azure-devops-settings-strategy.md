@@ -4,6 +4,8 @@
 
 Settings should support Azure organization, project, board, team, sprint/iteration, and Azure Test Plans destination.
 
+Step 0008 introduces shared contracts for `AzureDevOpsBoardIdentity`, `BoardSelection`, state mapping settings, current QA user settings, Azure Test Plans destination settings, board knowledge files, board summaries, work queues, and explainable work recommendations. These contracts define the future settings model before any Azure fetch or storage is implemented.
+
 ## State Mapping
 
 Later, QA Assist should fetch available Azure DevOps states and let the user map:

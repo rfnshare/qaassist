@@ -92,7 +92,7 @@ The QA engine converts normalized work item context into structured QA analysis.
 
 ## Shared Schemas
 
-Shared schemas define the contracts for work item context, comments, attachments, linked work items, QA analysis results, questions, test cases, regression scope, automation candidates, and UAT notes.
+Shared schemas define the contracts for work item context, comments, attachments, linked work items, QA analysis results, questions, test cases, regression scope, automation candidates, UAT notes, board summaries, work queues, settings, board knowledge, and work recommendations.
 
 Initial shared package structure:
 
@@ -102,18 +102,30 @@ packages/shared/
     api/
       apiError.ts
       apiResponse.ts
+    boards/
+      boardSummary.ts
+      workQueue.ts
     common/
       sourceProvider.ts
       timestamps.ts
+    knowledge/
+      boardKnowledge.ts
     qa/
       qaAnalysisResult.ts
       qaEnums.ts
       testCase.ts
+    recommendations/
+      workRecommendation.ts
+    settings/
+      azureDevOpsSettings.ts
+      currentQaUser.ts
+    test-management/
+      testManagementSettings.ts
     work-items/
       workItemContext.ts
 ```
 
-The package currently provides type-first contracts for API responses, normalized work item context, QA analysis results, QA questions, impacted areas, test scope, test cases, regression scope, automation candidates, and UAT handoff notes. Runtime validation schemas are intentionally deferred until the contracts are reviewed against the Azure DevOps adapter needs.
+The package currently provides type-first contracts for API responses, normalized work item context, QA analysis results, QA questions, impacted areas, test scope, test cases, regression scope, automation candidates, UAT handoff notes, board summaries, work queues, Azure DevOps settings, current QA user settings, Azure Test Plans destination settings, board-scoped knowledge files, and explainable work recommendations. Runtime validation schemas are intentionally deferred until the contracts are reviewed against the Azure DevOps adapter needs.
 
 ## Boundaries
 

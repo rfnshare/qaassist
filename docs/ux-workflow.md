@@ -5,7 +5,7 @@ QA Assist uses a simplified four-section side panel designed for a narrow browse
 ## Primary Sections
 
 1. Today helps the QA engineer orient quickly with selected team board status, board condition, ready-to-retest work, assigned QA work, future AI board briefing, and one clear next action.
-2. Story focuses on the currently detected Azure DevOps work item, read-only source-backed detail fetch, and future requirement review, scope, and test case approval.
+2. Story focuses on the currently detected Azure DevOps work item, read-only source-backed detail fetch, deterministic requirement/gap preview analysis, and future scope/test case approval.
 3. Run prepares the future manual testing companion, evidence capture, bug creation, and automation candidate flow.
 4. Settings keeps theme, Azure connection, team board selection, QA workflow, Azure Test Plans, board knowledge, AI analysis, automation, privacy, approval, and advanced local development settings compact.
 
@@ -23,7 +23,9 @@ Preview values must be clearly labeled as preview-only or not connected until Az
 
 Step 0014 turns Story into the first real QA workspace foundation. When a supported Azure DevOps work item page is detected, the user can fetch work item details through the QA Assist backend. The extension must not call Azure DevOps directly, request a PAT, or store secrets.
 
-Fetched description and acceptance criteria are evidence, not final analysis. They should be shown as safe text previews with source/fetched-at labels. Requirement summary, gaps/questions, and test scope remain clearly labeled as not analyzed or generated yet until a later source-backed workflow exists.
+Step 0015 adds deterministic requirement and gap analysis after work item detail is fetched. The analysis uses only fetched title, type, state, description, acceptance criteria, tags, fields, relations, and metadata. It must be labeled as evidence-bound preview output, not LLM-generated output.
+
+Fetched description and acceptance criteria are evidence, not final truth. Requirement summary, gaps/questions, likely test areas, risks, assumptions, and needs-confirmation items remain reviewable and non-final until QA/BA/PO confirms them. Test case draft generation is still inactive.
 
 ## Setup Flow
 

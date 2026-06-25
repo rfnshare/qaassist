@@ -7,6 +7,7 @@ import type {
   CurrentQaUserSettings,
   QaWorkQueue,
   BoardSummary,
+  StoryRequirementAnalysis,
   WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
@@ -61,6 +62,13 @@ export async function fetchWorkItemDetail(
   }
 ): Promise<{ workItem: WorkItemDetail; fetchedAt: string }> {
   return postJson(apiBaseUrl, "/azure-devops/work-items/detail", input);
+}
+
+export async function analyzeStoryRequirements(
+  apiBaseUrl: string,
+  workItem: WorkItemDetail
+): Promise<StoryRequirementAnalysis> {
+  return postJson(apiBaseUrl, "/analysis/story-requirements", { workItem });
 }
 
 export async function generateBoardBriefing(

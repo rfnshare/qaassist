@@ -461,6 +461,15 @@ button {
   border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
 }
 
+.analysis-card {
+  display: grid;
+  gap: 10px;
+}
+
+.analysis-empty {
+  font-size: 12px;
+}
+
 .story-title-card {
   display: grid;
   gap: 8px;
@@ -508,6 +517,40 @@ button {
 .briefing-body {
   display: grid;
   gap: 10px;
+}
+
+.analysis-body {
+  display: grid;
+  gap: 10px;
+}
+
+.analysis-body > strong {
+  font-size: 14px;
+}
+
+.analysis-list {
+  display: grid;
+  gap: 5px;
+}
+
+.analysis-list span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.analysis-list p,
+.analysis-list ul {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.analysis-list ul {
+  display: grid;
+  gap: 5px;
+  padding-left: 18px;
 }
 
 .briefing-body > strong {

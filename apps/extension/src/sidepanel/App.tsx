@@ -10,10 +10,12 @@ import type {
   BoardScope,
   BoardSummary,
   CurrentQaUserSettings,
+  StoryRequirementAnalysis,
   WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
 import {
+  analyzeStoryRequirements,
   type BoardSummaryPreviewResponse,
   connectAzureDevOps,
   fetchBoardSummaryPreview,
@@ -32,6 +34,7 @@ type ResolvedTheme = "light" | "dark";
 type FetchStatus = "idle" | "loading" | "success" | "error";
 type BriefingStatus = "idle" | "loading" | "success" | "error";
 type StoryDetailStatus = "idle" | "loading" | "success" | "error";
+type StoryAnalysisStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -85,6 +88,9 @@ export function App() {
   const [storyDetailStatus, setStoryDetailStatus] = useState<StoryDetailStatus>("idle");
   const [storyDetailMessage, setStoryDetailMessage] = useState<string>("Open an Azure DevOps work item and fetch details.");
   const [workItemDetail, setWorkItemDetail] = useState<WorkItemDetail | null>(null);
+  const [storyAnalysisStatus, setStoryAnalysisStatus] = useState<StoryAnalysisStatus>("idle");
+  const [storyAnalysisMessage, setStoryAnalysisMessage] = useState<string>("Fetch story details first.");
+  const [storyAnalysis, setStoryAnalysis] = useState<StoryRequirementAnalysis | null>(null);
   const [setupStatus, setSetupStatus] = useState<SetupStatus>("idle");
   const [setupMessage, setSetupMessage] = useState<string>("Enter your Azure DevOps Services or TFS URL to begin.");
   const [projectOptions, setProjectOptions] = useState<AzureDevOpsProjectOption[]>([]);
@@ -119,6 +125,15 @@ export function App() {
   useEffect(() => {
     chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: settings });
   }, [settings]);
+
+  useEffect(() => {
+    setWorkItemDetail(null);
+    setStoryDetailStatus("idle");
+    setStoryDetailMessage(pageContext ? "Fetch story details to begin." : "Open an Azure DevOps work item and fetch details.");
+    setStoryAnalysis(null);
+    setStoryAnalysisStatus("idle");
+    setStoryAnalysisMessage("Fetch story details first.");
+  }, [pageContext?.organization, pageContext?.project, pageContext?.workItemId]);
 
   useEffect(() => {
     function handleMessage(message: ExtensionMessage): void {
@@ -219,6 +234,9 @@ export function App() {
 
     setStoryDetailStatus("loading");
     setStoryDetailMessage("Fetching read-only work item details...");
+    setStoryAnalysis(null);
+    setStoryAnalysisStatus("idle");
+    setStoryAnalysisMessage("Fetch story details first.");
 
     try {
       const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
@@ -232,9 +250,36 @@ export function App() {
       setWorkItemDetail(payload.workItem);
       setStoryDetailStatus("success");
       setStoryDetailMessage("Fetched source-backed Azure work item details.");
+      setStoryAnalysisMessage("Ready for evidence-bound preview analysis.");
     } catch (error) {
+      setWorkItemDetail(null);
+      setStoryAnalysis(null);
       setStoryDetailStatus("error");
       setStoryDetailMessage(error instanceof Error ? error.message : "Work item detail fetch failed.");
+      setStoryAnalysisStatus("idle");
+      setStoryAnalysisMessage("Fetch story details first.");
+    }
+  }
+
+  async function analyzeStory(): Promise<void> {
+    if (!workItemDetail) {
+      setStoryAnalysisStatus("error");
+      setStoryAnalysisMessage("Fetch story details first.");
+      return;
+    }
+
+    setStoryAnalysisStatus("loading");
+    setStoryAnalysisMessage("Generating deterministic evidence-bound preview...");
+
+    try {
+      const analysis = await analyzeStoryRequirements(settings.apiBaseUrl, workItemDetail);
+      setStoryAnalysis(analysis);
+      setStoryAnalysisStatus("success");
+      setStoryAnalysisMessage("Evidence-bound preview analysis is ready.");
+    } catch (error) {
+      setStoryAnalysis(null);
+      setStoryAnalysisStatus("error");
+      setStoryAnalysisMessage(error instanceof Error ? error.message : "Requirement analysis failed.");
     }
   }
 
@@ -270,7 +315,11 @@ export function App() {
           storyDetailStatus,
           storyDetailMessage,
           workItemDetail,
+          storyAnalysisStatus,
+          storyAnalysisMessage,
+          storyAnalysis,
           onFetchStoryDetail: fetchStoryDetail,
+          onAnalyzeStory: analyzeStory,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -305,7 +354,11 @@ function renderPanel(props: {
   storyDetailStatus: StoryDetailStatus;
   storyDetailMessage: string;
   workItemDetail: WorkItemDetail | null;
+  storyAnalysisStatus: StoryAnalysisStatus;
+  storyAnalysisMessage: string;
+  storyAnalysis: StoryRequirementAnalysis | null;
   onFetchStoryDetail: () => void;
+  onAnalyzeStory: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -333,7 +386,11 @@ function renderPanel(props: {
           detail={props.workItemDetail}
           detailStatus={props.storyDetailStatus}
           detailMessage={props.storyDetailMessage}
+          analysis={props.storyAnalysis}
+          analysisStatus={props.storyAnalysisStatus}
+          analysisMessage={props.storyAnalysisMessage}
           onFetchStoryDetail={props.onFetchStoryDetail}
+          onAnalyzeStory={props.onAnalyzeStory}
         />
       );
     case "run":
@@ -438,7 +495,11 @@ function StoryPanel({
   detail,
   detailStatus,
   detailMessage,
-  onFetchStoryDetail
+  analysis,
+  analysisStatus,
+  analysisMessage,
+  onFetchStoryDetail,
+  onAnalyzeStory
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -446,7 +507,11 @@ function StoryPanel({
   detail: WorkItemDetail | null;
   detailStatus: StoryDetailStatus;
   detailMessage: string;
+  analysis: StoryRequirementAnalysis | null;
+  analysisStatus: StoryAnalysisStatus;
+  analysisMessage: string;
   onFetchStoryDetail: () => void;
+  onAnalyzeStory: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -475,7 +540,18 @@ function StoryPanel({
         <InfoCard title="Board mismatch" body="This work item page differs from the selected team board. Review before using board-level recommendations." tone="warning" />
       ) : null}
       <InfoCard title="Fetch status" body={detailMessage} tone={detailStatus === "error" ? "warning" : "neutral"} />
-      {detail ? <StoryDetailView detail={detail} /> : <StoryPlaceholderCards />}
+      {detail ? (
+        <>
+          <StoryDetailView detail={detail} />
+          <StoryAnalysisCard
+            analysis={analysis}
+            status={analysisStatus}
+            message={analysisMessage}
+            canAnalyze={Boolean(detail)}
+            onAnalyze={onAnalyzeStory}
+          />
+        </>
+      ) : <StoryPlaceholderCards />}
     </section>
   );
 }
@@ -546,10 +622,89 @@ function StoryDetailView({ detail }: { detail: WorkItemDetail }) {
       <TextPreviewCard title="Description evidence" text={detail.descriptionText} />
       <TextPreviewCard title="Acceptance criteria evidence" text={detail.acceptanceCriteriaText} />
       <RelationSummary buckets={relationBuckets} />
-      <StoryPlaceholderCards />
-      <TrustNote text="Description and acceptance criteria are evidence, not final analysis. AI analysis and test case generation will be added later and must stay source-backed." />
+      <TrustNote text="Description and acceptance criteria are evidence. Requirement analysis is a separate evidence-bound preview and final test cases are not generated yet." />
     </>
   );
+}
+
+function StoryAnalysisCard({
+  analysis,
+  status,
+  message,
+  canAnalyze,
+  onAnalyze
+}: {
+  analysis: StoryRequirementAnalysis | null;
+  status: StoryAnalysisStatus;
+  message: string;
+  canAnalyze: boolean;
+  onAnalyze: () => void;
+}) {
+  return (
+    <article className="info-card analysis-card">
+      <div className="card-row">
+        <h3>Requirement analysis</h3>
+        <span className="status-pill">{analysis ? "Evidence-bound preview" : "Not analyzed"}</span>
+      </div>
+      <p>{message}</p>
+      <SecondaryAction
+        label={status === "loading" ? "Analyzing requirements..." : "Analyze requirements"}
+        disabled={!canAnalyze || status === "loading"}
+        onClick={onAnalyze}
+      />
+      {analysis ? <StoryAnalysisResult analysis={analysis} /> : <p className="analysis-empty">Fetch story details first. Test case draft not generated yet.</p>}
+    </article>
+  );
+}
+
+function StoryAnalysisResult({ analysis }: { analysis: StoryRequirementAnalysis }) {
+  return (
+    <div className="analysis-body">
+      <strong>{analysis.headline}</strong>
+      <p>{analysis.requirementSummary.text}</p>
+      <InfoGrid
+        items={[
+          ["Acceptance criteria", analysis.acceptanceCriteriaStatus],
+          ["Description", analysis.descriptionStatus],
+          ["Confidence", analysis.confidence]
+        ]}
+      />
+      <AnalysisList title="Gaps" items={analysis.gaps.map(formatAnalysisItem)} />
+      <AnalysisList title="Questions for BA/PO" items={analysis.questionsForBAOrPO.map(formatAnalysisItem)} />
+      <AnalysisList title="Likely test areas" items={analysis.likelyTestAreas.map((area) => `${area.name}: ${area.reason}`)} />
+      <AnalysisList title="Risks" items={analysis.risks.map(formatAnalysisItem)} />
+      <AnalysisList title="Assumptions" items={analysis.assumptions.slice(0, 4)} />
+      <AnalysisList title="Needs confirmation" items={analysis.needsConfirmation.slice(0, 5)} />
+      <p className="trust-note">{analysis.disclaimer}</p>
+      <p className="analysis-empty">Test case draft not generated yet.</p>
+    </div>
+  );
+}
+
+function AnalysisList({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="analysis-list">
+        <span>{title}</span>
+        <p>No items returned in this preview.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="analysis-list">
+      <span>{title}</span>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function formatAnalysisItem(item: { text: string; severity: string; certainty: string }): string {
+  return `${item.text} (${item.severity}, ${item.certainty})`;
 }
 
 function TextPreviewCard({ title, text }: { title: string; text?: string }) {

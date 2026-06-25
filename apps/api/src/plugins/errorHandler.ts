@@ -12,8 +12,8 @@ export function registerErrorHandler(app: FastifyInstance): void {
 
   app.setErrorHandler((error, request, reply) => {
     const statusCode = getStatusCode(error);
-    const code: ApiErrorCode = statusCode >= 500 ? "INTERNAL_SERVER_ERROR" : "BAD_REQUEST";
-    const message = statusCode >= 500 ? "Unexpected server error." : getErrorMessage(error);
+    const code: ApiErrorCode = getErrorCode(error) ?? (statusCode >= 500 ? "INTERNAL_SERVER_ERROR" : "BAD_REQUEST");
+    const message = statusCode >= 500 && !shouldExposeMessage(error) ? "Unexpected server error." : getErrorMessage(error);
 
     request.log.error(error);
 
@@ -23,6 +23,18 @@ export function registerErrorHandler(app: FastifyInstance): void {
       requestId: request.id
     });
   });
+}
+
+function shouldExposeMessage(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "exposeMessage" in error && error.exposeMessage === true;
+}
+
+function getErrorCode(error: unknown): ApiErrorCode | undefined {
+  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "string") {
+    return error.code as ApiErrorCode;
+  }
+
+  return undefined;
 }
 
 function getStatusCode(error: unknown): number {

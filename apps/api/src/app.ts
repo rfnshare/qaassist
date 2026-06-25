@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { loadEnv, type ApiEnv } from "./config/env.js";
 import { registerCors } from "./plugins/cors.js";
 import { registerErrorHandler } from "./plugins/errorHandler.js";
+import { registerAzureDevOpsRoutes } from "./routes/azureDevOps.routes.js";
 import { registerHealthRoutes } from "./routes/health.routes.js";
 
 export type BuildAppOptions = {
@@ -19,6 +20,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   registerErrorHandler(app);
   await registerCors(app, env);
   await registerHealthRoutes(app);
+  await registerAzureDevOpsRoutes(app, env);
 
   return app;
 }

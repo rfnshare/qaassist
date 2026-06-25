@@ -5,6 +5,7 @@
 - Do not store production LLM keys in the browser extension.
 - Use backend-mediated LLM access for product architecture.
 - Store future tokens encrypted server-side with least-privilege scopes.
+- For local Step 0009 development, Azure DevOps PATs stay in the API server `.env` only and must never be entered into extension settings.
 - Keep browser host permissions limited to needed Azure DevOps domains.
 - Do not silently exfiltrate board, story, file, or evidence data.
 - Do not persist raw board/story data by default.

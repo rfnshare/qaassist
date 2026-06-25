@@ -6,6 +6,8 @@ Settings should support Azure organization, project, board, team, sprint/iterati
 
 Step 0008 introduces shared contracts for `AzureDevOpsBoardIdentity`, `BoardSelection`, state mapping settings, current QA user settings, Azure Test Plans destination settings, board knowledge files, board summaries, work queues, and explainable work recommendations. These contracts define the future settings model before any Azure fetch or storage is implemented.
 
+Step 0009 adds the first local read-only settings flow in the extension. The extension stores only non-secret values: API base URL, organization, project, optional team, optional iteration path, and optional current QA user. The Azure DevOps PAT remains on the backend in local `.env`.
+
 ## State Mapping
 
 Later, QA Assist should fetch available Azure DevOps states and let the user map:
@@ -15,6 +17,8 @@ Later, QA Assist should fetch available Azure DevOps states and let the user map
 - Resolved.
 - Blocked.
 - Ready for UAT.
+
+Step 0009 exposes a read-only `/azure-devops/states` backend route that fetches available states by work item type. Saving state mappings remains future work.
 
 ## Current QA User
 

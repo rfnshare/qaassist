@@ -39,7 +39,7 @@ apps/extension/
       components/
 ```
 
-The shell currently includes a side panel UI, background service worker, content script placeholder, and static Manifest V3 configuration. It does not detect Azure DevOps pages, call backend APIs, call LLM providers, or render real QA analysis yet.
+The shell currently includes a side panel UI, background service worker, content script placeholder, static Manifest V3 configuration, local non-secret Azure settings, and a Today action that calls the backend for a read-only board summary preview. It does not call LLM providers or render real QA analysis yet.
 
 Azure DevOps page detection module structure:
 
@@ -52,7 +52,7 @@ apps/extension/
 
 The Step 0005 extension detection boundary is URL-only. It parses supported Azure DevOps work item URLs and sends safe page context to the side panel: source, organization, project, work item ID, work item URL, and detection timestamp. It does not scrape story text, fetch Azure DevOps APIs, call the backend, perform auth, or call an LLM.
 
-Step 0006 upgrades the side panel into a QA cockpit shell with Command Center, Work Queue, Story Workspace, Scope & Cases, Manual Run, Automation, Mail, and Settings. These sections are preview-only until their integrations are implemented.
+Step 0009 keeps the simplified Today, Story, Run, and Settings flow. Settings stores only non-secret local values. Today fetches real board summary data only through the backend when the API and Azure DevOps PAT are configured.
 
 ## Backend API
 
@@ -76,11 +76,13 @@ apps/api/
       apiError.ts
 ```
 
-The API skeleton currently includes `GET /`, `GET /health`, environment variable parsing, development CORS, request IDs, and structured error responses. It does not include Azure DevOps integration, OAuth, PAT handling, LLM providers, database/storage, or QA analysis orchestration yet.
+The API currently includes `GET /`, `GET /health`, environment variable parsing, development CORS, request IDs, structured error responses, and read-only Azure DevOps preview routes under `/azure-devops`. The PAT is read from backend environment only and is never returned to the extension. OAuth, LLM providers, database/storage, write-back, and QA analysis orchestration are not implemented yet.
 
 ## Azure DevOps Adapter
 
 The Azure DevOps adapter fetches work item data and normalizes platform-specific fields into shared work item contracts. Azure DevOps is the first adapter; Jira and other tools are later possibilities.
+
+Step 0009 adds backend-only read operations for Azure DevOps states and board summary preview. The preview uses WIQL to find candidate work item IDs, Work Items Batch to fetch selected fields, and mappers to produce `BoardSummary`, `QaWorkQueue`, and `WorkRecommendation` contracts.
 
 ## LLM Gateway
 
@@ -131,6 +133,7 @@ The package currently provides type-first contracts for API responses, normalize
 
 - Extension UI should not contain provider-specific LLM logic.
 - Azure DevOps extraction should not be hardcoded into the QA analysis engine.
+- Azure DevOps PATs stay server-side only and must not be stored in extension settings.
 - Story content and tokens should not be persisted unless explicitly designed and approved later.
 - Step 0005 Azure DevOps detection is limited to supported URLs and safe metadata.
 - Board files and requirement memory must be board-scoped when implemented.

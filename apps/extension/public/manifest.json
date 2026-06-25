@@ -5,6 +5,8 @@
   "version": "0.0.2",
   "permissions": ["sidePanel", "storage", "activeTab"],
   "host_permissions": [
+    "http://127.0.0.1:4317/*",
+    "http://localhost:4317/*",
     "https://dev.azure.com/*",
     "https://*.visualstudio.com/*"
   ],

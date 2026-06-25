@@ -1,4 +1,11 @@
 import { useEffect, useState } from "react";
+import type {
+  BoardScope,
+  BoardSummary,
+  CurrentQaUserSettings,
+  QaWorkQueue,
+  WorkRecommendation
+} from "@qa-assist/shared";
 import type { AzureDevOpsPageContext } from "../adapters/azureDevOpsPageAdapter";
 import { EXTENSION_MESSAGES, type ExtensionMessage } from "../shared/extensionMessages";
 import { Header } from "./components/Header";
@@ -7,8 +14,36 @@ import { Navigation, type PanelKey } from "./components/Navigation";
 type DetectionStatus = "checking" | "detected" | "unsupported";
 type ThemePreference = "system" | "light" | "dark";
 type ResolvedTheme = "light" | "dark";
+type FetchStatus = "idle" | "loading" | "success" | "error";
+
+type ExtensionSettings = {
+  apiBaseUrl: string;
+  organization: string;
+  project: string;
+  team: string;
+  iterationPath: string;
+  currentQaUserDisplayName: string;
+  currentQaUserEmail: string;
+};
+
+type BoardSummaryPreviewResponse = {
+  boardSummary: BoardSummary;
+  workQueue: QaWorkQueue;
+  recommendation?: WorkRecommendation;
+};
 
 const THEME_STORAGE_KEY = "qaAssistTheme";
+const SETTINGS_STORAGE_KEY = "qaAssistSettings";
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:4317";
+const DEFAULT_SETTINGS: ExtensionSettings = {
+  apiBaseUrl: DEFAULT_API_BASE_URL,
+  organization: "",
+  project: "",
+  team: "",
+  iterationPath: "",
+  currentQaUserDisplayName: "",
+  currentQaUserEmail: ""
+};
 
 export function App() {
   const [activePanel, setActivePanel] = useState<PanelKey>("today");
@@ -16,10 +51,15 @@ export function App() {
   const [storyStatus, setStoryStatus] = useState<DetectionStatus>("checking");
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => getSystemTheme());
+  const [settings, setSettings] = useState<ExtensionSettings>(DEFAULT_SETTINGS);
+  const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle");
+  const [fetchMessage, setFetchMessage] = useState<string>("Board summary has not been fetched yet.");
+  const [preview, setPreview] = useState<BoardSummaryPreviewResponse | null>(null);
 
   useEffect(() => {
-    chrome.storage.local.get({ [THEME_STORAGE_KEY]: "system" }, (items) => {
+    chrome.storage.local.get({ [THEME_STORAGE_KEY]: "system", [SETTINGS_STORAGE_KEY]: DEFAULT_SETTINGS }, (items) => {
       setThemePreference(items[THEME_STORAGE_KEY] as ThemePreference);
+      setSettings({ ...DEFAULT_SETTINGS, ...(items[SETTINGS_STORAGE_KEY] as Partial<ExtensionSettings>) });
     });
   }, []);
 
@@ -41,6 +81,10 @@ export function App() {
   useEffect(() => {
     chrome.storage.local.set({ [THEME_STORAGE_KEY]: themePreference });
   }, [themePreference]);
+
+  useEffect(() => {
+    chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: settings });
+  }, [settings]);
 
   useEffect(() => {
     function handleMessage(message: ExtensionMessage): void {
@@ -76,48 +120,158 @@ export function App() {
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, []);
 
+  async function fetchBoardSummary(): Promise<void> {
+    if (!settings.organization.trim() || !settings.project.trim()) {
+      setFetchStatus("error");
+      setFetchMessage("Complete Azure organization and project in Settings before fetching board summary.");
+      return;
+    }
+
+    setFetchStatus("loading");
+    setFetchMessage("Fetching live Azure DevOps board summary...");
+
+    try {
+      const response = await fetch(`${settings.apiBaseUrl.replace(/\/$/, "")}/azure-devops/board-summary/preview`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          selectedBoard: buildBoardScope(settings),
+          currentQaUser: buildCurrentQaUser(settings),
+          maxItems: 100
+        })
+      });
+
+      const payload = (await response.json()) as BoardSummaryPreviewResponse | { error?: { message?: string } };
+
+      if (!response.ok) {
+        throw new Error("error" in payload ? payload.error?.message : "Board summary fetch failed.");
+      }
+
+      setPreview(payload as BoardSummaryPreviewResponse);
+      setFetchStatus("success");
+      setFetchMessage("Fetched live Azure DevOps board summary.");
+    } catch (error) {
+      setFetchStatus("error");
+      setFetchMessage(error instanceof Error ? error.message : "Board summary fetch failed.");
+    }
+  }
+
   return (
     <main className="app-shell">
       <Header resolvedTheme={resolvedTheme} />
       <Navigation activePanel={activePanel} onChange={setActivePanel} />
-      <div className="panel-frame">{renderPanel(activePanel, pageContext, storyStatus, themePreference, setThemePreference)}</div>
+      <div className="panel-frame">
+        {renderPanel({
+          activePanel,
+          pageContext,
+          storyStatus,
+          themePreference,
+          setThemePreference,
+          settings,
+          setSettings,
+          fetchStatus,
+          fetchMessage,
+          preview,
+          onFetchBoardSummary: fetchBoardSummary
+        })}
+      </div>
     </main>
   );
 }
 
-function renderPanel(
-  activePanel: PanelKey,
-  pageContext: AzureDevOpsPageContext | null,
-  storyStatus: DetectionStatus,
-  themePreference: ThemePreference,
-  setThemePreference: (theme: ThemePreference) => void
-) {
-  switch (activePanel) {
+function renderPanel(props: {
+  activePanel: PanelKey;
+  pageContext: AzureDevOpsPageContext | null;
+  storyStatus: DetectionStatus;
+  themePreference: ThemePreference;
+  setThemePreference: (theme: ThemePreference) => void;
+  settings: ExtensionSettings;
+  setSettings: (settings: ExtensionSettings) => void;
+  fetchStatus: FetchStatus;
+  fetchMessage: string;
+  preview: BoardSummaryPreviewResponse | null;
+  onFetchBoardSummary: () => void;
+}) {
+  switch (props.activePanel) {
     case "today":
-      return <TodayPanel />;
+      return (
+        <TodayPanel
+          settings={props.settings}
+          fetchStatus={props.fetchStatus}
+          fetchMessage={props.fetchMessage}
+          preview={props.preview}
+          onFetchBoardSummary={props.onFetchBoardSummary}
+        />
+      );
     case "story":
-      return <StoryPanel pageContext={pageContext} status={storyStatus} />;
+      return <StoryPanel pageContext={props.pageContext} status={props.storyStatus} />;
     case "run":
       return <RunPanel />;
     case "settings":
-      return <SettingsPanel themePreference={themePreference} onThemeChange={setThemePreference} />;
+      return (
+        <SettingsPanel
+          themePreference={props.themePreference}
+          onThemeChange={props.setThemePreference}
+          settings={props.settings}
+          onSettingsChange={props.setSettings}
+        />
+      );
   }
 }
 
-function TodayPanel() {
+function TodayPanel({
+  settings,
+  fetchStatus,
+  fetchMessage,
+  preview,
+  onFetchBoardSummary
+}: {
+  settings: ExtensionSettings;
+  fetchStatus: FetchStatus;
+  fetchMessage: string;
+  preview: BoardSummaryPreviewResponse | null;
+  onFetchBoardSummary: () => void;
+}) {
+  const settingsReady = Boolean(settings.organization.trim() && settings.project.trim() && settings.apiBaseUrl.trim());
+  const metrics = preview?.boardSummary.metrics ?? [];
+
   return (
     <section className="panel-content">
-      <PanelIntro eyebrow="Today" title="Start with one calm QA decision." />
-      <PrimaryAction label="Connect Azure Board later" helper="Preview only - not connected" />
-      <InfoGrid
-        items={[
-          ["Board summary", "Board summary will appear here after Azure connection."],
-          ["My QA work", "Assigned stories and bugs will appear here."],
-          ["Ready to retest", "Resolved bugs ready to retest will appear here."],
-          ["Updates", "Mail and board updates are a future summary."]
-        ]}
+      <PanelIntro eyebrow="Today" title="Start with the real board picture." />
+      <PrimaryAction
+        label={fetchStatus === "loading" ? "Fetching board summary..." : "Fetch board summary"}
+        helper={settingsReady ? "Read-only Azure DevOps preview" : "Complete Settings first"}
+        disabled={fetchStatus === "loading"}
+        onClick={onFetchBoardSummary}
       />
-      <TrustNote text="No real board counts are shown. QA Assist is not fetching Azure DevOps data yet." />
+      <InfoCard title="Fetch status" body={fetchMessage} tone={fetchStatus === "error" ? "warning" : "neutral"} />
+      {preview ? (
+        <>
+          <InfoGrid items={metrics.map((metric) => [metric.label, formatMetric(metric.value, metric.sourceDescription)])} />
+          <WorkItemsList title="My QA work" items={preview.boardSummary.myWork} />
+          <WorkItemsList title="Resolved bugs ready to retest" items={preview.boardSummary.resolvedBugsReadyToRetest} />
+          {preview.recommendation ? (
+            <InfoCard
+              title="Suggested next work"
+              body={`${preview.recommendation.recommendedWorkItem?.workItemId ?? "No item"} - ${preview.recommendation.reason} User confirmation is required.`}
+            />
+          ) : null}
+        </>
+      ) : (
+        <>
+          <InfoGrid
+            items={[
+              ["Board summary", "Live Azure DevOps counts will appear here after fetch."],
+              ["My QA work", "Configured QA user matching runs after fetch."],
+              ["Ready to retest", "Resolved bugs ready to retest appear after fetch."],
+              ["Suggested next work", "Recommendation stays explainable and user-confirmed."]
+            ]}
+          />
+          <TrustNote text="No fake board counts are shown. PAT stays on the API server; the extension stores only non-secret settings." />
+        </>
+      )}
     </section>
   );
 }
@@ -164,24 +318,41 @@ function RunPanel() {
 
 function SettingsPanel({
   themePreference,
-  onThemeChange
+  onThemeChange,
+  settings,
+  onSettingsChange
 }: {
   themePreference: ThemePreference;
   onThemeChange: (theme: ThemePreference) => void;
+  settings: ExtensionSettings;
+  onSettingsChange: (settings: ExtensionSettings) => void;
 }) {
+  function updateSetting(key: keyof ExtensionSettings, value: string): void {
+    onSettingsChange({ ...settings, [key]: value });
+  }
+
   return (
     <section className="panel-content">
-      <PanelIntro eyebrow="Settings" title="Keep setup explicit." />
+      <PanelIntro eyebrow="Settings" title="Configure local read-only Azure access." />
       <ThemeToggle value={themePreference} onChange={onThemeChange} />
-      <InfoGrid
-        items={[
-          ["Azure DevOps", "Connection, project, board, and state mapping later."],
-          ["Current QA user", "Microsoft identity later; configured QA user early."],
-          ["Azure Test Plans", "First test management destination after Azure setup."],
-          ["Board knowledge", "Files and notes will be scoped to a selected board."],
-          ["LLM and privacy", "Backend-mediated, minimized, redacted, source-labeled later."]
-        ]}
-      />
+      <section className="settings-form" aria-label="Azure DevOps local settings">
+        <TextInput label="API base URL" value={settings.apiBaseUrl} onChange={(value) => updateSetting("apiBaseUrl", value)} />
+        <TextInput label="Azure organization" value={settings.organization} onChange={(value) => updateSetting("organization", value)} />
+        <TextInput label="Azure project" value={settings.project} onChange={(value) => updateSetting("project", value)} />
+        <TextInput label="Azure team optional" value={settings.team} onChange={(value) => updateSetting("team", value)} />
+        <TextInput label="Iteration path optional" value={settings.iterationPath} onChange={(value) => updateSetting("iterationPath", value)} />
+        <TextInput
+          label="Current QA display name optional"
+          value={settings.currentQaUserDisplayName}
+          onChange={(value) => updateSetting("currentQaUserDisplayName", value)}
+        />
+        <TextInput
+          label="Current QA email optional"
+          value={settings.currentQaUserEmail}
+          onChange={(value) => updateSetting("currentQaUserEmail", value)}
+        />
+      </section>
+      <TrustNote text="Do not enter PATs here. Azure DevOps PAT belongs only in the API server local .env file." />
     </section>
   );
 }
@@ -236,9 +407,19 @@ function PanelIntro({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-function PrimaryAction({ label, helper }: { label: string; helper: string }) {
+function PrimaryAction({
+  label,
+  helper,
+  disabled,
+  onClick
+}: {
+  label: string;
+  helper: string;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
   return (
-    <button className="primary-action" type="button" aria-label={label}>
+    <button className="primary-action" type="button" aria-label={label} disabled={disabled} onClick={onClick}>
       <strong>{label}</strong>
       <span>{helper}</span>
     </button>
@@ -261,6 +442,35 @@ function InfoCard({ title, body, tone = "neutral" }: { title: string; body: stri
       <h3>{title}</h3>
       <p>{body}</p>
     </article>
+  );
+}
+
+function WorkItemsList({ title, items }: { title: string; items: BoardSummary["myWork"] }) {
+  return (
+    <article className="info-card">
+      <h3>{title}</h3>
+      {items.length > 0 ? (
+        <ul className="work-list">
+          {items.slice(0, 5).map((item) => (
+            <li key={`${item.source}-${item.workItemId}`}>
+              <span>#{item.workItemId}</span>
+              <strong>{item.title}</strong>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No matching real Azure DevOps work items returned.</p>
+      )}
+    </article>
+  );
+}
+
+function TextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="settings-field">
+      <span>{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }
 
@@ -291,6 +501,42 @@ function ThemeToggle({ value, onChange }: { value: ThemePreference; onChange: (t
       </div>
     </section>
   );
+}
+
+function buildBoardScope(settings: ExtensionSettings): BoardScope {
+  return {
+    source: "azure-devops",
+    organization: settings.organization.trim(),
+    project: settings.project.trim(),
+    team: normalizeOptional(settings.team),
+    iterationPath: normalizeOptional(settings.iterationPath)
+  };
+}
+
+function buildCurrentQaUser(settings: ExtensionSettings): CurrentQaUserSettings | undefined {
+  const displayName = settings.currentQaUserDisplayName.trim();
+  const email = settings.currentQaUserEmail.trim();
+
+  if (!displayName && !email) {
+    return undefined;
+  }
+
+  return {
+    displayName: displayName || email,
+    email: email || undefined,
+    source: "configured-user",
+    isOverride: true
+  };
+}
+
+function normalizeOptional(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function formatMetric(value: string | number | undefined, sourceDescription: string | undefined): string {
+  const metricValue = value === undefined ? "Not returned" : String(value);
+  return sourceDescription ? `${metricValue}. ${sourceDescription}` : metricValue;
 }
 
 function getSystemTheme(): ResolvedTheme {

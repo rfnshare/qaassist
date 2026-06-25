@@ -39,11 +39,11 @@ Browser Extension
 
 ## Current Status
 
-Step 0008 board/work summary contracts are implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend skeleton under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0009 Azure DevOps settings and board summary fetch is implemented for review. The repository now contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
-Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Shared contracts now define the future board summary, work queue, state mapping, current QA user, Azure Test Plans destination, board knowledge files, and explainable work recommendation models.
+Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Settings can store non-secret local Azure organization/project/team/current-QA-user/API-base-URL values, and Today can request a read-only board summary preview from the local backend.
 
-Azure DevOps board fetch, Azure Test Plans write-back, auth, LLM calls, file upload, database/storage, write-back, automation generation, and QA analysis logic are intentionally not implemented yet.
+The Azure DevOps PAT is backend-only and belongs in local `.env`, never in the extension. Azure Test Plans write-back, OAuth, LLM calls, file upload, database/storage, comments, bug creation, automation generation, and QA analysis logic are intentionally not implemented yet.
 
 ## Local Development
 
@@ -87,6 +87,16 @@ The root `npm run build` and `npm run typecheck` commands cover the shared packa
 
 API environment defaults are documented in `.env.example`. Keep real values in local `.env` files only.
 
+For local Azure DevOps board summary preview, copy `.env.example` to a local `.env` for the API process and set:
+
+```bash
+AZURE_DEVOPS_PAT=your-local-dev-pat
+AZURE_DEVOPS_API_VERSION=7.1
+AZURE_DEVOPS_REQUEST_TIMEOUT_MS=10000
+```
+
+Do not put PATs or tokens into the extension Settings panel.
+
 Load the unpacked extension locally:
 
 1. Run `npm run build`.
@@ -103,4 +113,6 @@ Test the simplified QA Assist side panel and Azure DevOps page detection locally
 4. Review the `Today`, `Story`, `Run`, and `Settings` sections.
 5. Confirm the `Story` section shows the organization, project, work item ID, URL, and detection timestamp.
 6. In `Settings`, test `System`, `Light`, and `Dark` theme modes.
-7. Confirm board/work summaries are clearly labeled as preview placeholders until Azure DevOps board fetch is implemented.
+7. In `Settings`, configure API base URL, Azure organization, project, optional team/iteration, and optional current QA user.
+8. In `Today`, click `Fetch board summary`.
+9. Confirm real counts only appear after a successful backend fetch. If backend PAT is missing, the UI should show `Azure DevOps backend token is not configured. Add it to local .env on the API server.`

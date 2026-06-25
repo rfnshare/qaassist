@@ -7,6 +7,7 @@ import type {
   CurrentQaUserSettings,
   QaWorkQueue,
   BoardSummary,
+  WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
 
@@ -47,6 +48,19 @@ export async function fetchBoardSummaryPreview(
   }
 ): Promise<BoardSummaryPreviewResponse> {
   return postJson(apiBaseUrl, "/azure-devops/board-summary/preview", input);
+}
+
+export async function fetchWorkItemDetail(
+  apiBaseUrl: string,
+  input: {
+    organization: string;
+    project: string;
+    workItemId: number;
+    team?: string;
+    url?: string;
+  }
+): Promise<{ workItem: WorkItemDetail; fetchedAt: string }> {
+  return postJson(apiBaseUrl, "/azure-devops/work-items/detail", input);
 }
 
 export async function generateBoardBriefing(

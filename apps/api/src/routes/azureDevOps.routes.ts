@@ -12,6 +12,7 @@ import { fetchAzureDevOpsBoardSummaryPreview } from "../integrations/azure-devop
 import { parseAzureDevOpsConnectionUrl } from "../integrations/azure-devops/azureDevOpsConnection.service.js";
 import { listAzureDevOpsProjects, listAzureDevOpsTeams } from "../integrations/azure-devops/azureDevOpsDiscovery.service.js";
 import { fetchAzureDevOpsStates } from "../integrations/azure-devops/azureDevOpsState.service.js";
+import { fetchAzureDevOpsWorkItemDetail } from "../integrations/azure-devops/azureDevOpsWorkItemDetail.service.js";
 
 const DEFAULT_WORK_ITEM_TYPES = ["User Story", "Product Backlog Item", "Bug", "Task"];
 
@@ -39,6 +40,14 @@ type ProjectsBody = {
 type TeamsBody = {
   connection?: unknown;
   project?: unknown;
+};
+
+type WorkItemDetailBody = {
+  organization?: unknown;
+  project?: unknown;
+  workItemId?: unknown;
+  team?: unknown;
+  url?: unknown;
 };
 
 export async function registerAzureDevOpsRoutes(app: FastifyInstance, env: ApiEnv): Promise<void> {
@@ -111,6 +120,19 @@ export async function registerAzureDevOpsRoutes(app: FastifyInstance, env: ApiEn
     const teams = await listAzureDevOpsTeams(client, connection, project);
 
     return { teams };
+  });
+
+  app.post<{ Body: WorkItemDetailBody }>("/azure-devops/work-items/detail", async (request) => {
+    const input = validateWorkItemDetailBody(request.body);
+    const workItem = await fetchAzureDevOpsWorkItemDetail(client, {
+      ...input,
+      apiVersion: runtimeConfig.apiVersion
+    });
+
+    return {
+      workItem,
+      fetchedAt: workItem.evidence.fetchedAt
+    };
   });
 }
 
@@ -241,6 +263,37 @@ function validateConnectionInfo(value: unknown): AzureDevOpsConnectionInfo {
   };
 }
 
+function validateWorkItemDetailBody(body: WorkItemDetailBody | undefined): {
+  organization: string;
+  project: string;
+  workItemId: number;
+  team?: string;
+  url?: string;
+} {
+  if (!body || typeof body !== "object") {
+    throw badRequest("request body is required.");
+  }
+
+  const organization = requireBodyString(body.organization, "organization");
+  const project = requireBodyString(body.project, "project");
+  const workItemId = parseWorkItemId(body.workItemId);
+
+  if (!workItemId) {
+    throw badRequest("workItemId must be a positive integer.");
+  }
+
+  assertOptionalString(body.team, "team");
+  const url = normalizeOptionalAzureWorkItemUrl(body.url);
+
+  return {
+    organization,
+    project,
+    workItemId,
+    team: normalizeOptionalString(body.team),
+    url
+  };
+}
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -260,8 +313,52 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function normalizeOptionalAzureWorkItemUrl(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  assertOptionalString(value, "url");
+
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    throw badRequest("url must be a valid Azure DevOps https URL.");
+  }
+
+  try {
+    const parsedUrl = new URL(normalized);
+    const host = parsedUrl.hostname.toLowerCase();
+    const isAzureDevOpsHost = host === "dev.azure.com" || host.endsWith(".visualstudio.com");
+
+    if (parsedUrl.protocol !== "https:" || !isAzureDevOpsHost) {
+      throw badRequest("url must be a valid Azure DevOps https URL.");
+    }
+
+    return normalized;
+  } catch (error) {
+    if (isValidationError(error)) {
+      throw error;
+    }
+
+    throw badRequest("url must be a valid Azure DevOps https URL.");
+  }
+}
+
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && Number.isFinite(value) && value > 0;
+}
+
+function parseWorkItemId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
 }
 
 function badRequest(message: string): Error & { statusCode: number; code: "VALIDATION_ERROR" } {
@@ -269,4 +366,11 @@ function badRequest(message: string): Error & { statusCode: number; code: "VALID
   error.statusCode = 400;
   error.code = "VALIDATION_ERROR";
   return error;
+}
+
+function isValidationError(error: unknown): error is Error & { statusCode: number; code: "VALIDATION_ERROR" } {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && (error as { code?: unknown }).code === "VALIDATION_ERROR";
 }

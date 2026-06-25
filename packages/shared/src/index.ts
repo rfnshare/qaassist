@@ -14,3 +14,4 @@ export * from "./settings/azureDevOpsSettings.js";
 export * from "./settings/currentQaUser.js";
 export * from "./test-management/testManagementSettings.js";
 export * from "./work-items/workItemContext.js";
+export * from "./work-items/workItemDetail.js";

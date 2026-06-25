@@ -15,3 +15,4 @@
 - All write-back actions require explicit user approval.
 - AI analysis, board knowledge upload, Azure Test Plans creation, bug creation, comments, and repository changes remain inactive until explicit review and approval flows exist.
 - Step 0013 board briefing is deterministic preview logic unless a future backend LLM adapter is explicitly configured. The extension must not store AI keys or call model providers directly.
+- Step 0014 work item detail fetch is read-only and backend-mediated. The extension must not call Azure DevOps directly, collect PATs, store secrets, or log private story descriptions and acceptance criteria.

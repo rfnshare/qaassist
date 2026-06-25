@@ -14,61 +14,62 @@
 - 0010 Azure preview validation and Today UI refinement.
 - 0011 Seamless Azure setup and configuration shell.
 - 0012 Azure connection and team discovery routes.
+- 0013 Evidence-bound AI board briefing foundation.
 
-## 0013 Evidence-Bound AI Board Briefing Foundation
+## 0014 Azure Work Item Detail Fetch And Story Workspace Foundation
 
-Implemented for review in Step 0013.
+Implemented for review in Step 0014.
 
-Add shared briefing contracts, a backend deterministic evidence-bound board briefing generator, a `/briefings/board` route, and Today UI for generating a useful QA briefing from returned board summary/work queue evidence. No LLM provider call is active yet.
+Add shared work item detail contracts, a backend read-only Azure DevOps work item detail fetch route, and a Story workspace foundation that displays source-backed fields, safe description/acceptance criteria previews, relation summaries, and inactive requirement/gap/test-scope placeholders. No LLM analysis, write-back, comments, bug creation, Azure Test Plans creation, or generated test cases are active yet.
 
-## 0014 Real Azure Discovery Hardening
+## 0015 Requirement/Gap Analysis Deterministic Foundation
 
-Harden setup and discovery based on manual real Azure validation findings.
+Add deterministic source-backed requirement summary and gap/question extraction from confirmed work item evidence. Keep all analysis reviewable and non-final until user confirmation.
 
-## 0015 Work Item Detail Fetch
-
-Fetch selected story/bug detail through the backend and normalize it into shared contracts.
-
-## 0016 Requirement/Knowledge Upload Foundation
+## 0016 Board Knowledge/Upload Foundation
 
 Design the first board-scoped requirement, transcript, Q&A, and product-note upload boundaries.
 
-## 0017 Backend LLM Provider Adapter
+## 0017 Test Case Draft Generation From Confirmed Requirement Evidence
+
+Generate reviewable test case drafts only from confirmed requirement evidence and source labels.
+
+## 0018 Optional Backend LLM Provider Adapter
 
 Add optional backend-mediated LLM provider abstraction for approved AI workflows. The extension must not hold AI keys.
 
-## 0018 State Mapping Save And Board Setup Hardening
+## 0019 State Mapping Save And Board Setup Hardening
 
 Persist user-approved Azure DevOps state mappings, improve board/team selection, and harden setup validation.
 
-## 0019 Story Workspace Requirement Discussion
+## 0020 Story Workspace Requirement Discussion
 
 Add human-in-the-loop requirement clarification with evidence labels and open-question tracking.
 
-## 0020 Scope Builder And Confirmation Flow
+## 0021 Scope Builder And Confirmation Flow
 
 Build draft scope, confirmed scope, assumptions, exclusions, and approval state.
 
-## 0021 Test Case Source-Of-Truth Generation
+## 0022 Test Case Source-Of-Truth Generation
 
 Generate reviewable test cases from confirmed scope and source references.
 
-## 0022 Azure Test Plans Write-Back
+## 0023 Azure Test Plans Write-Back
 
 Push approved test cases to Azure Test Plans only after explicit user confirmation.
 
-## 0023 Manual Testing Companion
+## 0024 Manual Testing Companion
 
 Guide manual execution, capture notes/evidence, and support retest/UAT handoff.
 
-## 0024 Bug Creation Flow
+## 0025 Bug Creation Flow
 
 Create Azure DevOps bugs from current context only after user review and confirmation.
 
-## 0025 Playwright Framework Integration
+## 0026 Playwright Framework Integration
 
 Connect approved test cases to Playwright automation candidates and repository modes.
 
-## 0026 Automation Generation/Execution/CI
+## 0027 Automation Generation/Execution/CI
 
 Generate, run, maintain, and connect automation with CI only through explicit user approval.

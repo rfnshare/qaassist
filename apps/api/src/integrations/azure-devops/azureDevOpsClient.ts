@@ -6,6 +6,7 @@ type AzureDevOpsRequestOptions = {
   organization: string;
   project?: string;
   path: string;
+  query?: Record<string, string>;
   method?: "GET" | "POST";
   body?: unknown;
 };
@@ -72,6 +73,9 @@ function buildUrl(config: AzureDevOpsRuntimeConfig, options: AzureDevOpsRequestO
     `https://dev.azure.com/${encodeURIComponent(options.organization)}${projectSegment}/_apis/${options.path}`
   );
   url.searchParams.set("api-version", config.apiVersion);
+  for (const [key, value] of Object.entries(options.query ?? {})) {
+    url.searchParams.set(key, value);
+  }
   return url.toString();
 }
 

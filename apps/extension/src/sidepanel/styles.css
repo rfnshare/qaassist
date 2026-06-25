@@ -444,6 +444,49 @@ button {
   border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
 }
 
+.story-title-card {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.story-title-card h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.story-title-card p,
+.text-preview-card p {
+  margin: 0;
+}
+
+.text-preview-card p {
+  max-height: 150px;
+  overflow: auto;
+}
+
+.relation-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.relation-pill {
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .briefing-card,
 .briefing-body {
   display: grid;

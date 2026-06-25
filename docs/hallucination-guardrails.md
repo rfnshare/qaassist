@@ -20,3 +20,4 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Board briefing output must cite returned board summary, work queue, or recommendation evidence for concrete work-item claims.
 - Deterministic preview briefing must be labeled as preview output and still require user confirmation.
 - Future LLM-assisted briefing must stay backend-mediated and must not treat unverified inference as fact.
+- Story description, acceptance criteria, fields, and relations fetched in Step 0014 are evidence inputs only. Requirement summaries, gaps/questions, and test scope drafts must remain inactive placeholders until a later source-backed analysis workflow exists.

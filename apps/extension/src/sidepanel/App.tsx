@@ -10,12 +10,14 @@ import type {
   BoardScope,
   BoardSummary,
   CurrentQaUserSettings,
+  WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
 import {
   type BoardSummaryPreviewResponse,
   connectAzureDevOps,
   fetchBoardSummaryPreview,
+  fetchWorkItemDetail,
   generateBoardBriefing,
   listAzureTeams
 } from "../api/qaAssistApiClient";
@@ -29,6 +31,7 @@ type ThemePreference = "system" | "light" | "dark";
 type ResolvedTheme = "light" | "dark";
 type FetchStatus = "idle" | "loading" | "success" | "error";
 type BriefingStatus = "idle" | "loading" | "success" | "error";
+type StoryDetailStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -79,6 +82,9 @@ export function App() {
   const [briefingStatus, setBriefingStatus] = useState<BriefingStatus>("idle");
   const [briefingMessage, setBriefingMessage] = useState<string>("Fetch board condition first to generate an evidence-bound briefing.");
   const [briefing, setBriefing] = useState<BoardBriefing | null>(null);
+  const [storyDetailStatus, setStoryDetailStatus] = useState<StoryDetailStatus>("idle");
+  const [storyDetailMessage, setStoryDetailMessage] = useState<string>("Open an Azure DevOps work item and fetch details.");
+  const [workItemDetail, setWorkItemDetail] = useState<WorkItemDetail | null>(null);
   const [setupStatus, setSetupStatus] = useState<SetupStatus>("idle");
   const [setupMessage, setSetupMessage] = useState<string>("Enter your Azure DevOps Services or TFS URL to begin.");
   const [projectOptions, setProjectOptions] = useState<AzureDevOpsProjectOption[]>([]);
@@ -204,6 +210,34 @@ export function App() {
     }
   }
 
+  async function fetchStoryDetail(): Promise<void> {
+    if (!pageContext) {
+      setStoryDetailStatus("error");
+      setStoryDetailMessage("Open an Azure DevOps work item to fetch story details.");
+      return;
+    }
+
+    setStoryDetailStatus("loading");
+    setStoryDetailMessage("Fetching read-only work item details...");
+
+    try {
+      const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
+        organization: pageContext.organization,
+        project: pageContext.project,
+        workItemId: pageContext.workItemId,
+        team: normalizeOptional(settings.team),
+        url: pageContext.workItemUrl
+      });
+
+      setWorkItemDetail(payload.workItem);
+      setStoryDetailStatus("success");
+      setStoryDetailMessage("Fetched source-backed Azure work item details.");
+    } catch (error) {
+      setStoryDetailStatus("error");
+      setStoryDetailMessage(error instanceof Error ? error.message : "Work item detail fetch failed.");
+    }
+  }
+
   return (
     <main className="app-shell">
       <Header resolvedTheme={resolvedTheme} />
@@ -233,6 +267,10 @@ export function App() {
           setTeamOptions,
           onFetchBoardSummary: fetchBoardSummary,
           onGenerateQaBriefing: generateQaBriefing,
+          storyDetailStatus,
+          storyDetailMessage,
+          workItemDetail,
+          onFetchStoryDetail: fetchStoryDetail,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -264,6 +302,10 @@ function renderPanel(props: {
   setTeamOptions: (teams: AzureDevOpsTeamOption[]) => void;
   onFetchBoardSummary: () => void;
   onGenerateQaBriefing: () => void;
+  storyDetailStatus: StoryDetailStatus;
+  storyDetailMessage: string;
+  workItemDetail: WorkItemDetail | null;
+  onFetchStoryDetail: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -283,7 +325,17 @@ function renderPanel(props: {
         />
       );
     case "story":
-      return <StoryPanel pageContext={props.pageContext} status={props.storyStatus} />;
+      return (
+        <StoryPanel
+          pageContext={props.pageContext}
+          status={props.storyStatus}
+          settings={props.settings}
+          detail={props.workItemDetail}
+          detailStatus={props.storyDetailStatus}
+          detailMessage={props.storyDetailMessage}
+          onFetchStoryDetail={props.onFetchStoryDetail}
+        />
+      );
     case "run":
       return <RunPanel />;
     case "settings":
@@ -379,24 +431,47 @@ function TodayPanel({
   );
 }
 
-function StoryPanel({ pageContext, status }: { pageContext: AzureDevOpsPageContext | null; status: DetectionStatus }) {
+function StoryPanel({
+  pageContext,
+  status,
+  settings,
+  detail,
+  detailStatus,
+  detailMessage,
+  onFetchStoryDetail
+}: {
+  pageContext: AzureDevOpsPageContext | null;
+  status: DetectionStatus;
+  settings: ExtensionSettings;
+  detail: WorkItemDetail | null;
+  detailStatus: StoryDetailStatus;
+  detailMessage: string;
+  onFetchStoryDetail: () => void;
+}) {
   const detected = Boolean(pageContext);
+  const differsFromSelectedBoard =
+    detected &&
+    settings.project.trim() &&
+    settings.project.trim().toLowerCase() !== pageContext?.project.toLowerCase();
 
   return (
     <section className="panel-content">
       <PanelIntro eyebrow="Story" title={detected ? "Review this Azure work item." : "Open a story to begin."} />
       <PrimaryAction
-        label={detected ? "Start story review" : "Open Azure DevOps story"}
-        helper={detected ? "Detection only - no story text fetched" : "Open an Azure DevOps work item to begin."}
+        label={detailStatus === "loading" ? "Fetching details..." : detected ? "Fetch story details" : "Open Azure DevOps story"}
+        helper={detected ? "Read-only via QA Assist API" : "Open an Azure DevOps work item to begin."}
+        disabled={!detected || detailStatus === "loading"}
+        onClick={detected ? onFetchStoryDetail : undefined}
       />
       <DetectionCard pageContext={pageContext} status={status} />
-      <InfoGrid
-        items={[
-          ["Requirement clarity", "Requirement sufficiency will appear after work item fetch."],
-          ["Assistant discussion", "Questions remain open until QA confirms answers."],
-          ["Scope and cases", "Draft scope and test cases require QA approval."]
-        ]}
-      />
+      {detected && !hasSelectedTeamBoard(settings) ? (
+        <InfoCard title="Page context" body="Using detected page context. Select a team board in Settings for Today/recommendations." />
+      ) : null}
+      {differsFromSelectedBoard ? (
+        <InfoCard title="Board mismatch" body="This work item page differs from the selected team board. Review before using board-level recommendations." tone="warning" />
+      ) : null}
+      <InfoCard title="Fetch status" body={detailMessage} tone={detailStatus === "error" ? "warning" : "neutral"} />
+      {detail ? <StoryDetailView detail={detail} /> : <StoryPlaceholderCards />}
     </section>
   );
 }
@@ -416,6 +491,87 @@ function RunPanel() {
       />
       <TrustNote text="No automation, bug creation, or write-back is active in this shell." />
     </section>
+  );
+}
+
+function StoryDetailView({ detail }: { detail: WorkItemDetail }) {
+  const relationBuckets = groupRelations(detail);
+
+  return (
+    <>
+      <article className="snapshot-card">
+        <div>
+          <span className="meta-label">Fetched</span>
+          <strong>{formatDateTime(detail.evidence.fetchedAt)}</strong>
+        </div>
+        <div>
+          <span className="meta-label">Source</span>
+          <strong>{detail.evidence.sourceDescription}</strong>
+        </div>
+      </article>
+      <article className="story-title-card">
+        <span className="status-pill success">Source-backed</span>
+        <h3 title={detail.title}>{truncateTitle(detail.title, 96)}</h3>
+        <p>#{detail.workItemId} | {detail.workItemType} | {detail.state ?? "State not returned"}</p>
+      </article>
+      <InfoGrid
+        items={[
+          ["Assigned to", detail.assignedTo ?? "Not returned"],
+          ["Tags", detail.tags.length > 0 ? detail.tags.join(", ") : "None returned"],
+          ["Priority", formatOptionalValue(detail.priority)],
+          ["Severity", detail.severity ?? "Not returned"],
+          ["Story points", formatOptionalValue(detail.storyPoints)],
+          ["Changed", detail.changedDate ? formatDateTime(detail.changedDate) : "Not returned"],
+          ["Area", detail.areaPath ?? "Not returned"],
+          ["Iteration", detail.iterationPath ?? "Not returned"]
+        ]}
+      />
+      <TextPreviewCard title="Description evidence" text={detail.descriptionText} />
+      <TextPreviewCard title="Acceptance criteria evidence" text={detail.acceptanceCriteriaText} />
+      <RelationSummary buckets={relationBuckets} />
+      <StoryPlaceholderCards />
+      <TrustNote text="Description and acceptance criteria are evidence, not final analysis. AI analysis and test case generation will be added later and must stay source-backed." />
+    </>
+  );
+}
+
+function TextPreviewCard({ title, text }: { title: string; text?: string }) {
+  return (
+    <article className="info-card text-preview-card">
+      <h3>{title}</h3>
+      <p>{text ? truncateLongText(text, 520) : "Not returned by Azure DevOps."}</p>
+    </article>
+  );
+}
+
+function RelationSummary({ buckets }: { buckets: Array<[string, number]> }) {
+  return (
+    <article className="info-card">
+      <h3>Relations</h3>
+      {buckets.length > 0 ? (
+        <div className="relation-grid">
+          {buckets.map(([label, count]) => (
+            <span className="relation-pill" key={label}>
+              {label}: {count}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p>No parent, child, related, duplicate, or test-case relations returned.</p>
+      )}
+    </article>
+  );
+}
+
+function StoryPlaceholderCards() {
+  return (
+    <InfoGrid
+      items={[
+        ["Requirement summary", "Not analyzed yet. Fetch details first; AI analysis comes later."],
+        ["Gaps/questions", "Not analyzed yet. Open questions must stay open until QA confirms them."],
+        ["Test scope draft", "Not generated yet. Final test scope and cases require user confirmation."]
+      ]}
+    />
   );
 }
 
@@ -1079,9 +1235,35 @@ function getStateBucketEntries(summary: BoardSummary): Array<[string, number | u
   ];
 }
 
-function truncateTitle(title: string): string {
+function truncateTitle(title: string, maxLength = 72): string {
   const normalized = title.replace(/\s+/g, " ").trim();
-  return normalized.length > 72 ? `${normalized.slice(0, 69)}...` : normalized;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3)}...` : normalized;
+}
+
+function truncateLongText(text: string, maxLength: number): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3)}...` : normalized;
+}
+
+function formatOptionalValue(value: string | number | undefined): string {
+  return value === undefined ? "Not returned" : String(value);
+}
+
+function groupRelations(detail: WorkItemDetail): Array<[string, number]> {
+  const counts = new Map<string, number>();
+  for (const relation of detail.relations) {
+    const label = relation.kind;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries()).map(([label, count]) => [formatRelationKind(label), count]);
+}
+
+function formatRelationKind(kind: string): string {
+  return kind
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function formatDateTime(value: string): string {

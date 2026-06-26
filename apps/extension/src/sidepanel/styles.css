@@ -218,6 +218,41 @@ button {
   gap: 10px;
 }
 
+.choice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.choice-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 9px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.choice-row input {
+  margin-top: 2px;
+}
+
+.choice-row span {
+  display: grid;
+  gap: 3px;
+}
+
+.choice-row strong {
+  font-size: 13px;
+}
+
+.choice-row small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .info-card,
 .context-card,
 .snapshot-card,

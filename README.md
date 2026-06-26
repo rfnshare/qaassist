@@ -39,11 +39,11 @@ Browser Extension
 
 ## Current Status
 
-Step 0017 safe text extraction preview for board knowledge is implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0018 board knowledge evidence linking to Story analysis is implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
 Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Settings starts with an Azure DevOps Services or TFS URL, checks the connection through the backend, discovers Azure DevOps Services projects and team boards, and keeps manual setup under advanced local preview. Settings now includes a metadata-only Board Knowledge shell scoped to the selected team board. Today can request a read-only board condition preview and then generate an evidence-bound deterministic QA briefing from that returned board data. Story can request read-only Azure work item detail through the backend and generate a deterministic evidence-bound requirement/gap analysis from the fetched detail.
 
-The Azure DevOps PAT remains a local development backend-only fallback and is never requested by the extension. The product direction is seamless Azure/Microsoft auth later through Microsoft Entra/OAuth. The current board briefing and Story requirement analysis are deterministic preview logic, not LLM calls. Board knowledge supports metadata plus a backend JSON-only extraction preview for manually pasted `.txt` and `.md` text. Extracted text preview is not stored, indexed, analyzed, sent to an LLM, or included in Story analysis yet. Final test case generation, Azure Test Plans write-back, OAuth, database/storage, comments, bug creation, and automation generation are also intentionally not implemented yet.
+The Azure DevOps PAT remains a local development backend-only fallback and is never requested by the extension. The product direction is seamless Azure/Microsoft auth later through Microsoft Entra/OAuth. The current board briefing and Story requirement analysis are deterministic preview logic, not LLM calls. Board knowledge supports metadata plus a backend JSON-only extraction preview for manually pasted `.txt` and `.md` text. Story analysis can now include only user-selected board knowledge metadata, capped extraction preview evidence, or a short user-confirmed note. Board knowledge is not automatically indexed or linked. Final test case generation, Azure Test Plans write-back, OAuth, database/storage, comments, bug creation, and automation generation are also intentionally not implemented yet.
 
 ## Local Development
 
@@ -113,9 +113,9 @@ Test the simplified QA Assist side panel and Azure DevOps page detection locally
 4. Review the `Today`, `Story`, `Run`, and `Settings` sections.
 5. Confirm the `Story` section shows the organization, project, work item ID, URL, and detection timestamp.
 6. In `Story`, click `Fetch story details` and confirm details appear only after the backend call succeeds.
-7. Click `Analyze requirements` and confirm the output is labeled `Evidence-bound preview`.
-8. Confirm gaps/questions and likely test areas are clearly non-final and need confirmation.
-9. Confirm description and acceptance criteria display as safe text previews, not executable HTML.
+7. Optionally select linked board knowledge evidence in Story, then click `Analyze requirements` and confirm the output is labeled `Evidence-bound preview`.
+8. Confirm evidence coverage, linked evidence, gaps/questions, and likely test areas are clearly non-final and need confirmation.
+9. Confirm description, acceptance criteria, and linked extraction previews display as safe text previews, not executable HTML.
 10. In `Settings`, test `System`, `Light`, and `Dark` theme modes.
 11. In `Settings`, enter an Azure DevOps Services or TFS URL and click `Connect`.
 12. Select a discovered project and team board, or use advanced local preview only when discovery cannot run in local development.

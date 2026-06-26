@@ -51,3 +51,9 @@ Step 0017 adds a backend-mediated extraction preview boundary for board knowledg
 Only `.txt` and `.md` text are accepted through the JSON-only preview route. PDF, DOCX, XLSX, images, archives, executable/binary files, multipart upload, storage, indexing, LLM ingestion, and Story analysis linkage remain intentionally inactive.
 
 The preview result is scoped to the selected team board and labeled as extracted evidence preview, not truth. It shows source/file evidence, byte and character length, warnings, and a capped text preview. Full extracted text is not persisted in extension settings.
+
+## Story Evidence Linking
+
+Step 0018 lets the user explicitly link selected board knowledge evidence into a Story analysis request. Nothing is linked automatically. The Story tab can include selected metadata-only sources, the latest session extraction preview, and a short user-confirmed note.
+
+Metadata-only sources provide limited context because content has not been extracted. Extraction preview evidence includes only the capped preview text; full documents are not included or persisted. Story analysis remains deterministic preview output and must continue to show assumptions, needs-confirmation items, and evidence coverage.

@@ -18,16 +18,13 @@
 - 0014 Azure work item detail fetch and Story workspace foundation.
 - 0015 Deterministic requirement and gap analysis for Story workspace.
 - 0016 Board knowledge and requirement upload foundation.
-
-## 0017 Safe Text Extraction Preview For Board Knowledge
-
-Implemented for review in Step 0017.
-
-Add shared extraction contracts, backend policy/service, a JSON-only extraction route, and Settings extraction preview UI for manually pasted `.txt` and `.md` text. The preview is board-scoped and evidence-labeled, but it is not stored, indexed, analyzed, sent to an LLM, or included in Story analysis yet.
+- 0017 Safe text extraction preview for board knowledge.
 
 ## 0018 Board Knowledge Evidence Linking To Story Analysis
 
-Link reviewed board knowledge extraction evidence into Story analysis with explicit source labels, assumptions, needs-confirmation markers, and user control.
+Implemented for review in Step 0018.
+
+Add explicit user-selected linked evidence for Story analysis. Metadata-only sources, capped extraction preview evidence, and user-confirmed notes can be included in deterministic Story analysis with evidence coverage, warnings, assumptions, and needs-confirmation output.
 
 ## 0019 Test Case Draft Generation From Confirmed Evidence
 

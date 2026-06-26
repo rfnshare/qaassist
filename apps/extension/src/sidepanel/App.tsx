@@ -14,6 +14,7 @@ import type {
   BoardSummary,
   CurrentQaUserSettings,
   KnowledgeExtractionResult,
+  StoryLinkedKnowledgeEvidence,
   StoryRequirementAnalysis,
   WorkItemDetail,
   WorkRecommendation
@@ -112,6 +113,10 @@ export function App() {
   const [storyAnalysisStatus, setStoryAnalysisStatus] = useState<StoryAnalysisStatus>("idle");
   const [storyAnalysisMessage, setStoryAnalysisMessage] = useState<string>("Fetch story details first.");
   const [storyAnalysis, setStoryAnalysis] = useState<StoryRequirementAnalysis | null>(null);
+  const [selectedKnowledgeSourceIds, setSelectedKnowledgeSourceIds] = useState<string[]>([]);
+  const [includeLatestExtraction, setIncludeLatestExtraction] = useState(false);
+  const [userConfirmedNote, setUserConfirmedNote] = useState("");
+  const [latestExtractionResult, setLatestExtractionResult] = useState<KnowledgeExtractionResult | null>(null);
   const [setupStatus, setSetupStatus] = useState<SetupStatus>("idle");
   const [setupMessage, setSetupMessage] = useState<string>("Enter your Azure DevOps Services or TFS URL to begin.");
   const [projectOptions, setProjectOptions] = useState<AzureDevOpsProjectOption[]>([]);
@@ -154,6 +159,9 @@ export function App() {
     setStoryAnalysis(null);
     setStoryAnalysisStatus("idle");
     setStoryAnalysisMessage("Fetch story details first.");
+    setSelectedKnowledgeSourceIds([]);
+    setIncludeLatestExtraction(false);
+    setUserConfirmedNote("");
   }, [pageContext?.organization, pageContext?.project, pageContext?.workItemId]);
 
   useEffect(() => {
@@ -293,7 +301,18 @@ export function App() {
     setStoryAnalysisMessage("Generating deterministic evidence-bound preview...");
 
     try {
-      const analysis = await analyzeStoryRequirements(settings.apiBaseUrl, workItemDetail);
+      const linkedKnowledgeEvidence = buildLinkedKnowledgeEvidence({
+        settings,
+        canLinkKnowledge: canLinkKnowledgeForStory(settings, pageContext, workItemDetail),
+        selectedKnowledgeSourceIds,
+        includeLatestExtraction,
+        latestExtractionResult,
+        userConfirmedNote
+      });
+      const analysis = await analyzeStoryRequirements(settings.apiBaseUrl, {
+        workItem: workItemDetail,
+        linkedKnowledgeEvidence
+      });
       setStoryAnalysis(analysis);
       setStoryAnalysisStatus("success");
       setStoryAnalysisMessage("Evidence-bound preview analysis is ready.");
@@ -339,6 +358,14 @@ export function App() {
           storyAnalysisStatus,
           storyAnalysisMessage,
           storyAnalysis,
+          selectedKnowledgeSourceIds,
+          setSelectedKnowledgeSourceIds,
+          includeLatestExtraction,
+          setIncludeLatestExtraction,
+          userConfirmedNote,
+          setUserConfirmedNote,
+          latestExtractionResult,
+          setLatestExtractionResult,
           onFetchStoryDetail: fetchStoryDetail,
           onAnalyzeStory: analyzeStory,
           onOpenSettings: () => setActivePanel("settings")
@@ -378,6 +405,14 @@ function renderPanel(props: {
   storyAnalysisStatus: StoryAnalysisStatus;
   storyAnalysisMessage: string;
   storyAnalysis: StoryRequirementAnalysis | null;
+  selectedKnowledgeSourceIds: string[];
+  setSelectedKnowledgeSourceIds: (sourceIds: string[]) => void;
+  includeLatestExtraction: boolean;
+  setIncludeLatestExtraction: (include: boolean) => void;
+  userConfirmedNote: string;
+  setUserConfirmedNote: (note: string) => void;
+  latestExtractionResult: KnowledgeExtractionResult | null;
+  setLatestExtractionResult: (result: KnowledgeExtractionResult | null) => void;
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
   onOpenSettings: () => void;
@@ -410,6 +445,13 @@ function renderPanel(props: {
           analysis={props.storyAnalysis}
           analysisStatus={props.storyAnalysisStatus}
           analysisMessage={props.storyAnalysisMessage}
+          selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
+          setSelectedKnowledgeSourceIds={props.setSelectedKnowledgeSourceIds}
+          includeLatestExtraction={props.includeLatestExtraction}
+          setIncludeLatestExtraction={props.setIncludeLatestExtraction}
+          userConfirmedNote={props.userConfirmedNote}
+          setUserConfirmedNote={props.setUserConfirmedNote}
+          latestExtractionResult={props.latestExtractionResult}
           onFetchStoryDetail={props.onFetchStoryDetail}
           onAnalyzeStory={props.onAnalyzeStory}
         />
@@ -431,6 +473,7 @@ function renderPanel(props: {
           onProjectOptionsChange={props.setProjectOptions}
           teamOptions={props.teamOptions}
           onTeamOptionsChange={props.setTeamOptions}
+          onLatestExtractionResult={props.setLatestExtractionResult}
         />
       );
   }
@@ -519,6 +562,13 @@ function StoryPanel({
   analysis,
   analysisStatus,
   analysisMessage,
+  selectedKnowledgeSourceIds,
+  setSelectedKnowledgeSourceIds,
+  includeLatestExtraction,
+  setIncludeLatestExtraction,
+  userConfirmedNote,
+  setUserConfirmedNote,
+  latestExtractionResult,
   onFetchStoryDetail,
   onAnalyzeStory
 }: {
@@ -531,6 +581,13 @@ function StoryPanel({
   analysis: StoryRequirementAnalysis | null;
   analysisStatus: StoryAnalysisStatus;
   analysisMessage: string;
+  selectedKnowledgeSourceIds: string[];
+  setSelectedKnowledgeSourceIds: (sourceIds: string[]) => void;
+  includeLatestExtraction: boolean;
+  setIncludeLatestExtraction: (include: boolean) => void;
+  userConfirmedNote: string;
+  setUserConfirmedNote: (note: string) => void;
+  latestExtractionResult: KnowledgeExtractionResult | null;
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
 }) {
@@ -540,6 +597,11 @@ function StoryPanel({
     detected &&
     settings.project.trim() &&
     settings.project.trim().toLowerCase() !== pageContext?.project.toLowerCase();
+  const selectedBoard = hasSelectedTeamBoard(settings) ? buildBoardScope(settings) : null;
+  const scopedSources = selectedBoard
+    ? settings.boardKnowledgeSources.filter((source) => isSameBoardKnowledgeScope(source, selectedBoard))
+    : [];
+  const canLinkKnowledge = Boolean(selectedBoard) && !differsFromSelectedBoard;
 
   return (
     <section className="panel-content">
@@ -564,6 +626,19 @@ function StoryPanel({
       {detail ? (
         <>
           <StoryDetailView detail={detail} />
+          <StoryLinkedKnowledgeCard
+            settings={settings}
+            sources={scopedSources}
+            canLinkKnowledge={canLinkKnowledge}
+            differsFromSelectedBoard={Boolean(differsFromSelectedBoard)}
+            selectedKnowledgeSourceIds={selectedKnowledgeSourceIds}
+            onSelectedKnowledgeSourceIdsChange={setSelectedKnowledgeSourceIds}
+            latestExtractionResult={latestExtractionResult}
+            includeLatestExtraction={includeLatestExtraction}
+            onIncludeLatestExtractionChange={setIncludeLatestExtraction}
+            userConfirmedNote={userConfirmedNote}
+            onUserConfirmedNoteChange={setUserConfirmedNote}
+          />
           <StoryAnalysisCard
             analysis={analysis}
             status={analysisStatus}
@@ -648,6 +723,100 @@ function StoryDetailView({ detail }: { detail: WorkItemDetail }) {
   );
 }
 
+function StoryLinkedKnowledgeCard({
+  settings,
+  sources,
+  canLinkKnowledge,
+  differsFromSelectedBoard,
+  selectedKnowledgeSourceIds,
+  onSelectedKnowledgeSourceIdsChange,
+  latestExtractionResult,
+  includeLatestExtraction,
+  onIncludeLatestExtractionChange,
+  userConfirmedNote,
+  onUserConfirmedNoteChange
+}: {
+  settings: ExtensionSettings;
+  sources: BoardKnowledgeSource[];
+  canLinkKnowledge: boolean;
+  differsFromSelectedBoard: boolean;
+  selectedKnowledgeSourceIds: string[];
+  onSelectedKnowledgeSourceIdsChange: (sourceIds: string[]) => void;
+  latestExtractionResult: KnowledgeExtractionResult | null;
+  includeLatestExtraction: boolean;
+  onIncludeLatestExtractionChange: (include: boolean) => void;
+  userConfirmedNote: string;
+  onUserConfirmedNoteChange: (note: string) => void;
+}) {
+  const selectedCount = selectedKnowledgeSourceIds.length + (includeLatestExtraction && latestExtractionResult?.evidence ? 1 : 0) + (userConfirmedNote.trim() ? 1 : 0);
+
+  function toggleSource(sourceId: string): void {
+    onSelectedKnowledgeSourceIdsChange(
+      selectedKnowledgeSourceIds.includes(sourceId)
+        ? selectedKnowledgeSourceIds.filter((id) => id !== sourceId)
+        : [...selectedKnowledgeSourceIds, sourceId]
+    );
+  }
+
+  return (
+    <article className="info-card linked-evidence-card">
+      <div className="card-row">
+        <h3>Linked knowledge evidence</h3>
+        <span className="status-pill">{selectedCount} selected</span>
+      </div>
+      <p>Only selected evidence will be included. Nothing is automatically linked.</p>
+      {!hasSelectedTeamBoard(settings) ? (
+        <InfoCard title="Team board needed" body="Select a team board to link board knowledge evidence." tone="warning" />
+      ) : null}
+      {differsFromSelectedBoard ? (
+        <InfoCard title="Board mismatch" body="This story page differs from the selected team board. Board knowledge is not auto-linked." tone="warning" />
+      ) : null}
+      {canLinkKnowledge && sources.length > 0 ? (
+        <div className="choice-list">
+          {sources.map((source) => (
+            <label key={source.id} className="choice-row">
+              <input
+                type="checkbox"
+                checked={selectedKnowledgeSourceIds.includes(source.id)}
+                onChange={() => toggleSource(source.id)}
+              />
+              <span>
+                <strong>{source.title}</strong>
+                <small>{formatSourceType(source.type)} | {source.status}. Metadata-only context.</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      ) : canLinkKnowledge ? (
+        <InfoCard title="Board knowledge" body="No metadata-only sources are configured for this selected team board." />
+      ) : null}
+      {latestExtractionResult?.evidence && latestExtractionResult.extractedText ? (
+        <label className="choice-row">
+          <input
+            type="checkbox"
+            checked={includeLatestExtraction}
+            disabled={!canLinkKnowledge}
+            onChange={(event) => onIncludeLatestExtractionChange(event.target.checked)}
+          />
+          <span>
+            <strong>Latest extraction preview</strong>
+            <small>{latestExtractionResult.evidence.fileName}. Capped preview only; full document is not included.</small>
+          </span>
+        </label>
+      ) : (
+        <InfoCard title="Extraction preview" body="Run an extraction preview in Settings to make the latest capped preview selectable here." />
+      )}
+      <TextAreaInput
+        label="User-confirmed note optional"
+        help="Use only a short note you confirm applies to this story. It is sent with this analysis request only."
+        placeholder="Example: BA confirmed validation should apply to all required fields."
+        value={userConfirmedNote}
+        onChange={onUserConfirmedNoteChange}
+      />
+    </article>
+  );
+}
+
 function StoryAnalysisCard({
   analysis,
   status,
@@ -687,9 +856,13 @@ function StoryAnalysisResult({ analysis }: { analysis: StoryRequirementAnalysis 
         items={[
           ["Acceptance criteria", analysis.acceptanceCriteriaStatus],
           ["Description", analysis.descriptionStatus],
-          ["Confidence", analysis.confidence]
+          ["Confidence", analysis.confidence],
+          ["Work item evidence", String(analysis.evidenceCoverage.workItemEvidenceCount)],
+          ["Linked knowledge", String(analysis.evidenceCoverage.linkedKnowledgeEvidenceCount)]
         ]}
       />
+      <AnalysisList title="Evidence coverage warnings" items={analysis.evidenceCoverage.warnings} />
+      <AnalysisList title="Linked knowledge evidence" items={analysis.linkedKnowledgeEvidence.map(formatLinkedEvidenceItem)} />
       <AnalysisList title="Gaps" items={analysis.gaps.map(formatAnalysisItem)} />
       <AnalysisList title="Questions for BA/PO" items={analysis.questionsForBAOrPO.map(formatAnalysisItem)} />
       <AnalysisList title="Likely test areas" items={analysis.likelyTestAreas.map((area) => `${area.name}: ${area.reason}`)} />
@@ -697,7 +870,7 @@ function StoryAnalysisResult({ analysis }: { analysis: StoryRequirementAnalysis 
       <AnalysisList title="Assumptions" items={analysis.assumptions.slice(0, 4)} />
       <AnalysisList title="Needs confirmation" items={analysis.needsConfirmation.slice(0, 5)} />
       <p className="trust-note">{analysis.disclaimer}</p>
-      <p className="trust-note">Board knowledge and extraction previews are not included in this analysis yet. Future analysis will combine work item evidence with board-scoped knowledge after explicit evidence linking is enabled.</p>
+      <p className="trust-note">Linked board knowledge is user-selected context only. Metadata-only and extracted preview evidence are not complete or authoritative.</p>
       <p className="analysis-empty">Test case draft not generated yet.</p>
     </div>
   );
@@ -727,6 +900,10 @@ function AnalysisList({ title, items }: { title: string; items: string[] }) {
 
 function formatAnalysisItem(item: { text: string; severity: string; certainty: string }): string {
   return `${item.text} (${item.severity}, ${item.certainty})`;
+}
+
+function formatLinkedEvidenceItem(item: StoryLinkedKnowledgeEvidence): string {
+  return `${item.title} (${item.kind}, ${item.certainty}) - ${item.evidenceLabel}`;
 }
 
 function TextPreviewCard({ title, text }: { title: string; text?: string }) {
@@ -781,7 +958,8 @@ function SettingsPanel({
   projectOptions,
   onProjectOptionsChange,
   teamOptions,
-  onTeamOptionsChange
+  onTeamOptionsChange,
+  onLatestExtractionResult
 }: {
   themePreference: ThemePreference;
   onThemeChange: (theme: ThemePreference) => void;
@@ -795,6 +973,7 @@ function SettingsPanel({
   onProjectOptionsChange: (projects: AzureDevOpsProjectOption[]) => void;
   teamOptions: AzureDevOpsTeamOption[];
   onTeamOptionsChange: (teams: AzureDevOpsTeamOption[]) => void;
+  onLatestExtractionResult: (result: KnowledgeExtractionResult | null) => void;
 }) {
   function updateSetting(key: keyof ExtensionSettings, value: string): void {
     onSettingsChange({ ...settings, [key]: value });
@@ -965,6 +1144,7 @@ function SettingsPanel({
         settings={settings}
         selectedTeamReady={selectedTeamReady}
         onSettingsChange={onSettingsChange}
+        onLatestExtractionResult={onLatestExtractionResult}
       />
       <SettingsCard title="AI Analysis" body="AI support will be backend-mediated and evidence-bound. No LLM calls are active yet.">
         <InfoGrid
@@ -1008,11 +1188,13 @@ function SettingsPanel({
 function BoardKnowledgeSettingsCard({
   settings,
   selectedTeamReady,
-  onSettingsChange
+  onSettingsChange,
+  onLatestExtractionResult
 }: {
   settings: ExtensionSettings;
   selectedTeamReady: boolean;
   onSettingsChange: (settings: ExtensionSettings) => void;
+  onLatestExtractionResult: (result: KnowledgeExtractionResult | null) => void;
 }) {
   const [sourceType, setSourceType] = useState<BoardKnowledgeSourceType>("requirement-document");
   const [title, setTitle] = useState("");
@@ -1118,10 +1300,12 @@ function BoardKnowledgeSettingsCard({
       });
 
       setExtractionResult(result);
+      onLatestExtractionResult(result);
       setExtractionStatus("success");
       setExtractionMessage("Extraction preview returned from backend. It is not stored, indexed, or analyzed.");
     } catch (error) {
       setExtractionResult(null);
+      onLatestExtractionResult(null);
       setExtractionStatus("error");
       setExtractionMessage(error instanceof Error ? error.message : "Extraction preview failed.");
     }
@@ -1635,6 +1819,102 @@ function buildBoardScope(settings: ExtensionSettings): BoardScope {
     board: normalizeOptional(settings.board),
     iterationPath: normalizeOptional(settings.iterationPath)
   };
+}
+
+function buildLinkedKnowledgeEvidence({
+  settings,
+  canLinkKnowledge,
+  selectedKnowledgeSourceIds,
+  includeLatestExtraction,
+  latestExtractionResult,
+  userConfirmedNote
+}: {
+  settings: ExtensionSettings;
+  canLinkKnowledge: boolean;
+  selectedKnowledgeSourceIds: string[];
+  includeLatestExtraction: boolean;
+  latestExtractionResult: KnowledgeExtractionResult | null;
+  userConfirmedNote: string;
+}): StoryLinkedKnowledgeEvidence[] {
+  if (!canLinkKnowledge) {
+    return [];
+  }
+
+  const selectedBoard = hasSelectedTeamBoard(settings) ? buildBoardScope(settings) : null;
+  const linkedEvidence: StoryLinkedKnowledgeEvidence[] = [];
+
+  if (selectedBoard) {
+    const scopedSources = settings.boardKnowledgeSources.filter((source) => isSameBoardKnowledgeScope(source, selectedBoard));
+
+    for (const source of scopedSources) {
+      if (!selectedKnowledgeSourceIds.includes(source.id)) {
+        continue;
+      }
+
+      linkedEvidence.push({
+        id: source.id,
+        kind: "board-knowledge-metadata",
+        title: source.title,
+        sourceType: source.type,
+        status: source.status,
+        trustLevel: source.trustLevel,
+        fileName: source.file?.fileName,
+        evidenceLabel: source.evidenceLabel,
+        selectedByUser: true,
+        limitations: [
+          "Metadata-only source selected; content has not been extracted or analyzed.",
+          ...source.limitations
+        ],
+        certainty: source.trustLevel
+      });
+    }
+  }
+
+  if (includeLatestExtraction && latestExtractionResult?.evidence && latestExtractionResult.extractedText) {
+    linkedEvidence.push({
+      id: `extraction-${latestExtractionResult.evidence.extractedAt}`,
+      kind: "extracted-text-preview",
+      title: latestExtractionResult.evidence.sourceTitle,
+      textPreview: latestExtractionResult.extractedText.textPreview,
+      fileName: latestExtractionResult.evidence.fileName,
+      evidenceLabel: `Extracted preview from ${latestExtractionResult.evidence.fileName}.`,
+      selectedByUser: true,
+      limitations: [
+        "Only extracted preview text is included; full document is not included.",
+        ...latestExtractionResult.limitations
+      ],
+      certainty: "needs-confirmation"
+    });
+  }
+
+  const trimmedNote = userConfirmedNote.trim();
+  if (trimmedNote) {
+    linkedEvidence.push({
+      id: `user-note-${Date.now()}`,
+      kind: "user-confirmed-note",
+      title: "User-confirmed note",
+      textPreview: trimmedNote.slice(0, 1500),
+      evidenceLabel: "Short note explicitly entered by the QA user for this Story analysis request.",
+      selectedByUser: true,
+      limitations: ["User-confirmed note is request-scoped and is not stored as board knowledge."],
+      certainty: "user-confirmed"
+    });
+  }
+
+  return linkedEvidence;
+}
+
+function canLinkKnowledgeForStory(
+  settings: ExtensionSettings,
+  pageContext: AzureDevOpsPageContext | null,
+  workItemDetail: WorkItemDetail
+): boolean {
+  if (!hasSelectedTeamBoard(settings)) {
+    return false;
+  }
+
+  const storyProject = pageContext?.project ?? workItemDetail.project;
+  return settings.project.trim().toLowerCase() === storyProject.trim().toLowerCase();
 }
 
 function buildCurrentQaUser(settings: ExtensionSettings): CurrentQaUserSettings | undefined {

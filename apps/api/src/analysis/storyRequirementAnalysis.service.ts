@@ -1,5 +1,6 @@
 import type {
   StoryAnalysisEvidence,
+  StoryLinkedKnowledgeEvidence,
   StoryRequirementAnalysis,
   StoryRequirementAnalysisCertainty,
   StoryRequirementAnalysisSeverity,
@@ -14,16 +15,20 @@ import { DETERMINISTIC_STORY_ANALYSIS_DISCLAIMER } from "./storyRequirementAnaly
 const WEAK_TEXT_LENGTH = 80;
 const VAGUE_TITLE_WORDS = ["update", "fix", "improve", "changes", "misc", "support"];
 
-export function generateDeterministicStoryRequirementAnalysis(workItem: WorkItemDetail): StoryRequirementAnalysis {
+export function generateDeterministicStoryRequirementAnalysis(
+  workItem: WorkItemDetail,
+  linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[] = []
+): StoryRequirementAnalysis {
   const descriptionStatus = getTextStatus(workItem.descriptionText);
   const acceptanceCriteriaStatus = getAcceptanceCriteriaStatus(workItem);
   const evidence = collectEvidence(workItem);
   const gaps = buildGaps(workItem, descriptionStatus, acceptanceCriteriaStatus);
   const questionsForBAOrPO = buildQuestions(workItem, descriptionStatus, acceptanceCriteriaStatus);
-  const likelyTestAreas = buildLikelyTestAreas(workItem, acceptanceCriteriaStatus);
+  const likelyTestAreas = buildLikelyTestAreas(workItem, acceptanceCriteriaStatus, linkedKnowledgeEvidence);
   const risks = buildRisks(workItem, descriptionStatus, acceptanceCriteriaStatus);
-  const assumptions = buildAssumptions(workItem);
-  const needsConfirmation = buildNeedsConfirmation(workItem, gaps, questionsForBAOrPO);
+  const assumptions = buildAssumptions(workItem, linkedKnowledgeEvidence);
+  const needsConfirmation = buildNeedsConfirmation(workItem, gaps, questionsForBAOrPO, linkedKnowledgeEvidence);
+  const evidenceCoverage = buildEvidenceCoverage(evidence, linkedKnowledgeEvidence);
 
   return {
     mode: "deterministic-preview",
@@ -32,7 +37,7 @@ export function generateDeterministicStoryRequirementAnalysis(workItem: WorkItem
     title: workItem.title,
     workItemType: workItem.workItemType,
     headline: buildHeadline(descriptionStatus, acceptanceCriteriaStatus, gaps),
-    requirementSummary: buildSummary(workItem, descriptionStatus, acceptanceCriteriaStatus),
+    requirementSummary: buildSummary(workItem, descriptionStatus, acceptanceCriteriaStatus, linkedKnowledgeEvidence),
     acceptanceCriteriaStatus,
     descriptionStatus,
     gaps,
@@ -42,6 +47,8 @@ export function generateDeterministicStoryRequirementAnalysis(workItem: WorkItem
     assumptions,
     needsConfirmation,
     evidence,
+    linkedKnowledgeEvidence,
+    evidenceCoverage,
     confidence: calculateConfidence(descriptionStatus, acceptanceCriteriaStatus, gaps),
     disclaimer: DETERMINISTIC_STORY_ANALYSIS_DISCLAIMER
   };
@@ -66,7 +73,8 @@ function buildHeadline(
 function buildSummary(
   workItem: WorkItemDetail,
   descriptionStatus: "present" | "missing" | "weak",
-  acceptanceCriteriaStatus: StoryRequirementAnalysis["acceptanceCriteriaStatus"]
+  acceptanceCriteriaStatus: StoryRequirementAnalysis["acceptanceCriteriaStatus"],
+  linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]
 ): StoryRequirementAnalysis["requirementSummary"] {
   const evidence = [
     evidenceItem("title", "Work item title", workItem.title),
@@ -75,7 +83,7 @@ function buildSummary(
   ];
 
   return {
-    text: `This ${workItem.workItemType} is titled "${truncate(workItem.title, 96)}". Description is ${descriptionStatus}; acceptance criteria is ${acceptanceCriteriaStatus}.`,
+    text: `This ${workItem.workItemType} is titled "${truncate(workItem.title, 96)}". Description is ${descriptionStatus}; acceptance criteria is ${acceptanceCriteriaStatus}. ${buildLinkedEvidenceSummarySentence(linkedKnowledgeEvidence)}`,
     certainty: "source-backed",
     evidence
   };
@@ -162,7 +170,8 @@ function buildQuestions(
 
 function buildLikelyTestAreas(
   workItem: WorkItemDetail,
-  acceptanceCriteriaStatus: StoryRequirementAnalysis["acceptanceCriteriaStatus"]
+  acceptanceCriteriaStatus: StoryRequirementAnalysis["acceptanceCriteriaStatus"],
+  linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]
 ): StoryTestArea[] {
   const text = searchableText(workItem);
   const areas: StoryTestArea[] = [
@@ -184,6 +193,7 @@ function buildLikelyTestAreas(
   addAreaIfTextMatches(areas, text, ["form", "input", "field", "validation"], "Data validation", "Requirement text mentions form, input, field, or validation.");
   addAreaIfTextMatches(areas, text, ["api", "integration", "service"], "Integration/API", "Requirement text mentions API, integration, or service behavior.");
   addAreaIfTextMatches(areas, text, ["ui", "page", "screen", "button"], "UI/browser", "Requirement text mentions UI, page, screen, or button behavior.");
+  addLinkedEvidenceTestAreas(areas, linkedKnowledgeEvidence);
 
   return areas;
 }
@@ -211,9 +221,11 @@ function buildRisks(
   return risks;
 }
 
-function buildAssumptions(workItem: WorkItemDetail): string[] {
+function buildAssumptions(workItem: WorkItemDetail, linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]): string[] {
   const assumptions = [
-    "Only fetched work item detail was used; comments, attachments, and board knowledge are not included yet.",
+    linkedKnowledgeEvidence.length > 0
+      ? "Linked board knowledge evidence was selected by the user and is not automatically indexed."
+      : "Only fetched work item detail was used; comments, attachments, and board knowledge are not included.",
     "This preview does not validate business intent beyond the returned fields."
   ];
 
@@ -227,18 +239,80 @@ function buildAssumptions(workItem: WorkItemDetail): string[] {
 function buildNeedsConfirmation(
   workItem: WorkItemDetail,
   gaps: StoryRequirementGap[],
-  questions: StoryRequirementQuestion[]
+  questions: StoryRequirementQuestion[],
+  linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]
 ): string[] {
   return [
     "Confirm requirement intent with QA/BA/PO before finalizing scope.",
     "Confirm whether the listed gaps are true blockers or acceptable for this work item.",
     "Confirm test areas before creating final test cases.",
+    ...(linkedKnowledgeEvidence.length > 0 ? ["Confirm linked board knowledge evidence applies to this specific work item."] : []),
     ...(gaps.length > 0 ? ["Review all gap items before approving test design."] : []),
     ...(questions.length > 0 ? ["Answer open BA/PO questions before treating analysis as complete."] : []),
     ...(workItem.priority === undefined && workItem.severity === undefined && workItem.storyPoints === undefined
       ? ["Confirm priority, severity, or scope sizing if it affects QA order."]
       : [])
   ];
+}
+
+function buildLinkedEvidenceSummarySentence(linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]): string {
+  if (linkedKnowledgeEvidence.length === 0) {
+    return "No board knowledge evidence was linked to this analysis.";
+  }
+
+  return `User selected ${linkedKnowledgeEvidence.length} board knowledge evidence item${linkedKnowledgeEvidence.length === 1 ? "" : "s"} for context.`;
+}
+
+function addLinkedEvidenceTestAreas(areas: StoryTestArea[], linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]): void {
+  const previewText = linkedKnowledgeEvidence
+    .map((item) => item.textPreview ?? "")
+    .join(" ")
+    .toLowerCase();
+
+  addLinkedAreaIfTextMatches(areas, previewText, ["role", "user", "permission"], "Permission/role impact", "Linked preview text mentions user, role, or permission.");
+  addLinkedAreaIfTextMatches(areas, previewText, ["form", "input", "field", "validation"], "Data validation", "Linked preview text mentions form, input, field, or validation.");
+  addLinkedAreaIfTextMatches(areas, previewText, ["api", "integration", "service"], "Integration/API", "Linked preview text mentions API, integration, or service behavior.");
+  addLinkedAreaIfTextMatches(areas, previewText, ["ui", "page", "screen", "button"], "UI/browser", "Linked preview text mentions UI, page, screen, or button behavior.");
+}
+
+function addLinkedAreaIfTextMatches(areas: StoryTestArea[], text: string, words: string[], name: string, reason: string): void {
+  if (words.some((word) => text.includes(word))) {
+    areas.push(testArea(name, reason, "needs-confirmation", [
+      evidenceItem("linked-knowledge", "Matched linked knowledge preview", words.find((word) => text.includes(word)) ?? name)
+    ]));
+  }
+}
+
+function buildEvidenceCoverage(
+  workItemEvidence: StoryAnalysisEvidence[],
+  linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]
+): StoryRequirementAnalysis["evidenceCoverage"] {
+  return {
+    workItemEvidenceCount: workItemEvidence.length,
+    linkedKnowledgeEvidenceCount: linkedKnowledgeEvidence.length,
+    includedEvidenceKinds: Array.from(new Set(linkedKnowledgeEvidence.map((item) => item.kind))),
+    warnings: buildLinkedEvidenceWarnings(linkedKnowledgeEvidence)
+  };
+}
+
+function buildLinkedEvidenceWarnings(linkedKnowledgeEvidence: StoryLinkedKnowledgeEvidence[]): string[] {
+  if (linkedKnowledgeEvidence.length === 0) {
+    return ["No board knowledge evidence linked to this analysis."];
+  }
+
+  return linkedKnowledgeEvidence.flatMap((item) => {
+    const warnings: string[] = [];
+
+    if (item.kind === "board-knowledge-metadata" && !item.textPreview) {
+      warnings.push("Metadata-only source selected; content has not been extracted or analyzed.");
+    }
+
+    if (item.kind === "extracted-text-preview" && item.textPreview) {
+      warnings.push("Only extracted preview text is included; full document is not included.");
+    }
+
+    return warnings;
+  });
 }
 
 function collectEvidence(workItem: WorkItemDetail): StoryAnalysisEvidence[] {

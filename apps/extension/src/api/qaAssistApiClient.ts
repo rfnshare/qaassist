@@ -13,6 +13,7 @@ import type {
   QaWorkQueue,
   BoardSummary,
   StoryRequirementAnalysis,
+  StoryRequirementAnalysisRequest,
   WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
@@ -71,9 +72,9 @@ export async function fetchWorkItemDetail(
 
 export async function analyzeStoryRequirements(
   apiBaseUrl: string,
-  workItem: WorkItemDetail
+  input: WorkItemDetail | StoryRequirementAnalysisRequest
 ): Promise<StoryRequirementAnalysis> {
-  return postJson(apiBaseUrl, "/analysis/story-requirements", { workItem });
+  return postJson(apiBaseUrl, "/analysis/story-requirements", "workItem" in input ? input : { workItem: input });
 }
 
 export async function validateBoardKnowledgeSource(

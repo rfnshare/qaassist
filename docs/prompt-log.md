@@ -20,6 +20,7 @@ docs/prompts/0013-ai-board-briefing-foundation.md
 docs/prompts/0014-azure-work-item-detail-story-workspace.md
 docs/prompts/0015-story-requirement-gap-analysis.md
 docs/prompts/0016-board-knowledge-foundation.md
+docs/prompts/0017-safe-file-extraction-foundation.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -42,3 +43,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0014-azure-work-item-detail-story-workspace`: shared work item detail contracts, backend read-only Azure work item detail fetch route, extension API client integration, Story workspace source-backed detail UI, and docs without LLM analysis, write-back, PAT storage, comments, bug creation, or generated test cases.
 - `0015-story-requirement-gap-analysis`: shared Story requirement analysis contracts, deterministic backend evidence-bound analysis route, extension Story analysis UI, and docs without LLM calls, write-back, PAT storage, generated test cases, or fake story data.
 - `0016-board-knowledge-foundation`: board knowledge metadata contracts, metadata-only backend validation/summary routes, Settings metadata-only UI, and docs without file content upload/parsing/indexing, LLM calls, write-back, or fake documents.
+- `0017-safe-file-extraction-foundation`: shared extraction contracts, backend `.txt`/`.md` extraction policy and JSON preview route, Settings manual-paste extraction preview UI, and docs without multipart upload, storage, indexing, LLM ingestion, Story analysis linkage, or write-back.

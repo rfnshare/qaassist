@@ -27,7 +27,7 @@ Step 0015 adds deterministic requirement and gap analysis after work item detail
 
 Fetched description and acceptance criteria are evidence, not final truth. Requirement summary, gaps/questions, likely test areas, risks, assumptions, and needs-confirmation items remain reviewable and non-final until QA/BA/PO confirms them. Test case draft generation is still inactive.
 
-Step 0016 adds board knowledge metadata in Settings. Story analysis must continue to say board knowledge is not included yet until upload/indexing is enabled. Future Story analysis should distinguish Azure work item evidence, uploaded requirement evidence, transcript evidence, BA/PO confirmed answers, assumptions, and needs-confirmation items.
+Step 0016 adds board knowledge metadata in Settings. Step 0017 adds manual-paste extraction preview for `.txt` and `.md` text, but Story analysis must continue to say board knowledge and extraction previews are not included yet until explicit evidence linking is enabled. Future Story analysis should distinguish Azure work item evidence, uploaded requirement evidence, transcript evidence, BA/PO confirmed answers, assumptions, and needs-confirmation items.
 
 ## Setup Flow
 
@@ -35,4 +35,4 @@ Step 0011 makes setup-first behavior explicit. If no team board is selected, Tod
 
 After a team board is selected, Today should show `Selected Team: {organization}/{project}/{team}` and keep read-only board condition preview available. AI board briefing remains deterministic preview output unless a future backend LLM adapter is explicitly configured.
 
-Board Knowledge settings should show the selected team board scope and stay compact. The user can add metadata-only sources, but QA Assist should not imply those documents have been uploaded, parsed, indexed, or analyzed.
+Board Knowledge settings should show the selected team board scope and stay compact. The user can add metadata-only sources and optionally paste text for extraction preview, but QA Assist should not imply those documents have been uploaded, indexed, analyzed, or used in Story output.

@@ -17,61 +17,62 @@
 - 0013 Evidence-bound AI board briefing foundation.
 - 0014 Azure work item detail fetch and Story workspace foundation.
 - 0015 Deterministic requirement and gap analysis for Story workspace.
+- 0016 Board knowledge and requirement upload foundation.
 
-## 0016 Board Knowledge And Requirement Upload Foundation
+## 0017 Safe Text Extraction Preview For Board Knowledge
 
-Implemented for review in Step 0016.
+Implemented for review in Step 0017.
 
-Add shared board knowledge metadata contracts, backend metadata-only validation/summary routes, and Settings UI for selected-board-scoped knowledge source metadata. No file content upload, parsing, indexing, LLM ingestion, write-back, comments, bug creation, Azure Test Plans creation, or generated test cases are active yet.
+Add shared extraction contracts, backend policy/service, a JSON-only extraction route, and Settings extraction preview UI for manually pasted `.txt` and `.md` text. The preview is board-scoped and evidence-labeled, but it is not stored, indexed, analyzed, sent to an LLM, or included in Story analysis yet.
 
-## 0017 Safe File Upload/Content Extraction Design
+## 0018 Board Knowledge Evidence Linking To Story Analysis
 
-Design safe content upload, extraction, retention, access boundaries, and indexing review before any document text can be used as evidence.
+Link reviewed board knowledge extraction evidence into Story analysis with explicit source labels, assumptions, needs-confirmation markers, and user control.
 
-## 0018 Test Case Draft Generation From Confirmed Evidence
+## 0019 Test Case Draft Generation From Confirmed Evidence
 
 Generate reviewable test case drafts only from confirmed requirement evidence and source labels.
 
-## 0019 Optional Backend LLM Provider Adapter
+## 0020 Optional Backend LLM Provider Adapter
 
 Add optional backend-mediated LLM provider abstraction for approved AI workflows. The extension must not hold AI keys.
 
-## 0020 Azure Test Plans Draft/Write-Back Approval Flow
+## 0021 Azure Test Plans Draft/Write-Back Approval Flow
 
 Draft Azure Test Plans write-back previews from confirmed test cases and require explicit approval before creation.
 
-## 0021 State Mapping Save And Board Setup Hardening
+## 0022 State Mapping Save And Board Setup Hardening
 
 Persist user-approved Azure DevOps state mappings, improve board/team selection, and harden setup validation.
 
-## 0022 Story Workspace Requirement Discussion
+## 0023 Story Workspace Requirement Discussion
 
 Add human-in-the-loop requirement clarification with evidence labels and open-question tracking.
 
-## 0023 Scope Builder And Confirmation Flow
+## 0024 Scope Builder And Confirmation Flow
 
 Build draft scope, confirmed scope, assumptions, exclusions, and approval state.
 
-## 0024 Test Case Source-Of-Truth Generation
+## 0025 Test Case Source-Of-Truth Generation
 
 Generate reviewable test cases from confirmed scope and source references.
 
-## 0025 Azure Test Plans Write-Back
+## 0026 Azure Test Plans Write-Back
 
 Push approved test cases to Azure Test Plans only after explicit user confirmation.
 
-## 0026 Manual Testing Companion
+## 0027 Manual Testing Companion
 
 Guide manual execution, capture notes/evidence, and support retest/UAT handoff.
 
-## 0027 Bug Creation Flow
+## 0028 Bug Creation Flow
 
 Create Azure DevOps bugs from current context only after user review and confirmation.
 
-## 0028 Playwright Framework Integration
+## 0029 Playwright Framework Integration
 
 Connect approved test cases to Playwright automation candidates and repository modes.
 
-## 0029 Automation Generation/Execution/CI
+## 0030 Automation Generation/Execution/CI
 
 Generate, run, maintain, and connect automation with CI only through explicit user approval.

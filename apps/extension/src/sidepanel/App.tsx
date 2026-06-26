@@ -13,6 +13,7 @@ import type {
   BoardScope,
   BoardSummary,
   CurrentQaUserSettings,
+  KnowledgeExtractionResult,
   StoryRequirementAnalysis,
   WorkItemDetail,
   WorkRecommendation
@@ -21,6 +22,7 @@ import {
   analyzeStoryRequirements,
   type BoardSummaryPreviewResponse,
   connectAzureDevOps,
+  extractBoardKnowledgeText,
   fetchBoardSummaryPreview,
   fetchWorkItemDetail,
   generateBoardBriefing,
@@ -695,7 +697,7 @@ function StoryAnalysisResult({ analysis }: { analysis: StoryRequirementAnalysis 
       <AnalysisList title="Assumptions" items={analysis.assumptions.slice(0, 4)} />
       <AnalysisList title="Needs confirmation" items={analysis.needsConfirmation.slice(0, 5)} />
       <p className="trust-note">{analysis.disclaimer}</p>
-      <p className="trust-note">Board knowledge is not included in this analysis yet. Future analysis will combine work item evidence with board-scoped knowledge after upload/indexing is enabled.</p>
+      <p className="trust-note">Board knowledge and extraction previews are not included in this analysis yet. Future analysis will combine work item evidence with board-scoped knowledge after explicit evidence linking is enabled.</p>
       <p className="analysis-empty">Test case draft not generated yet.</p>
     </div>
   );
@@ -1019,11 +1021,18 @@ function BoardKnowledgeSettingsCard({
   const [fileMetadata, setFileMetadata] = useState<BoardKnowledgeUploadDraft["file"]>();
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("Content upload and indexing are not active yet. This step stores only source metadata for review.");
+  const [extractionSourceId, setExtractionSourceId] = useState("");
+  const [extractionFileName, setExtractionFileName] = useState("");
+  const [extractionText, setExtractionText] = useState("");
+  const [extractionStatus, setExtractionStatus] = useState<"idle" | "extracting" | "success" | "error">("idle");
+  const [extractionMessage, setExtractionMessage] = useState("Paste .txt or .md text manually to preview extraction. Nothing is stored or indexed.");
+  const [extractionResult, setExtractionResult] = useState<KnowledgeExtractionResult | null>(null);
 
   const selectedBoard = selectedTeamReady ? buildBoardScope(settings) : null;
   const scopedSources = selectedBoard
     ? settings.boardKnowledgeSources.filter((source) => isSameBoardKnowledgeScope(source, selectedBoard))
     : [];
+  const selectedExtractionSource = scopedSources.find((source) => source.id === extractionSourceId);
 
   async function addMetadataOnlySource(): Promise<void> {
     if (!selectedBoard) {
@@ -1073,6 +1082,51 @@ function BoardKnowledgeSettingsCard({
       : undefined);
   }
 
+  async function previewExtraction(): Promise<void> {
+    if (!selectedBoard) {
+      setExtractionStatus("error");
+      setExtractionMessage("Select a team board before previewing extraction.");
+      return;
+    }
+
+    const sourceTitle = selectedExtractionSource?.title ?? title.trim();
+    const fileName = extractionFileName.trim() || selectedExtractionSource?.file?.fileName || fileMetadata?.fileName || "";
+
+    if (!sourceTitle) {
+      setExtractionStatus("error");
+      setExtractionMessage("Enter a source title or choose a configured metadata source before extraction preview.");
+      return;
+    }
+
+    setExtractionStatus("extracting");
+    setExtractionMessage("Sending pasted text to the backend extraction preview route...");
+
+    try {
+      const result = await extractBoardKnowledgeText(settings.apiBaseUrl, {
+        selectedBoard,
+        source: {
+          id: selectedExtractionSource?.id,
+          title: sourceTitle,
+          type: selectedExtractionSource?.type ?? sourceType
+        },
+        file: {
+          fileName,
+          fileType: selectedExtractionSource?.file?.fileType ?? fileMetadata?.fileType,
+          sizeBytes: selectedExtractionSource?.file?.sizeBytes ?? fileMetadata?.sizeBytes,
+          textContent: extractionText
+        }
+      });
+
+      setExtractionResult(result);
+      setExtractionStatus("success");
+      setExtractionMessage("Extraction preview returned from backend. It is not stored, indexed, or analyzed.");
+    } catch (error) {
+      setExtractionResult(null);
+      setExtractionStatus("error");
+      setExtractionMessage(error instanceof Error ? error.message : "Extraction preview failed.");
+    }
+  }
+
   return (
     <SettingsCard
       title="Board Knowledge"
@@ -1103,8 +1157,73 @@ function BoardKnowledgeSettingsCard({
       </div>
       <SecondaryAction label={status === "saving" ? "Adding metadata..." : "Add metadata-only source"} disabled={!selectedTeamReady || status === "saving"} onClick={addMetadataOnlySource} />
       <InfoCard title="Knowledge status" body={message} tone={status === "error" ? "warning" : "neutral"} />
+      <article className="info-card extraction-preview">
+        <div className="card-row">
+          <h3>Extraction preview</h3>
+          <span className="status-pill">Manual paste only</span>
+        </div>
+        <p>Preview .txt or .md text extraction through the backend. Extraction preview is not stored, indexed, or analyzed yet.</p>
+        {scopedSources.length > 0 ? (
+          <SelectInput
+            label="Configured source optional"
+            value={extractionSourceId}
+            options={scopedSources.map((source) => ({ label: source.title, value: source.id }))}
+            placeholder="Use current source form"
+            onChange={setExtractionSourceId}
+          />
+        ) : null}
+        <TextInput
+          label="Extraction file name"
+          help="Only .txt and .md are accepted for this foundation step."
+          placeholder="requirements.md"
+          value={extractionFileName}
+          onChange={setExtractionFileName}
+        />
+        <TextAreaInput
+          label="Paste text for extraction preview"
+          help="File selector metadata is not read. Paste only content you are allowed to use for this selected team board."
+          placeholder="Paste plain text or markdown here."
+          value={extractionText}
+          onChange={setExtractionText}
+        />
+        <SecondaryAction
+          label={extractionStatus === "extracting" ? "Previewing extraction..." : "Preview extraction"}
+          disabled={!selectedTeamReady || extractionStatus === "extracting"}
+          onClick={previewExtraction}
+        />
+        <InfoCard title="Extraction status" body={extractionMessage} tone={extractionStatus === "error" ? "warning" : "neutral"} />
+        <KnowledgeExtractionPreview result={extractionResult} />
+      </article>
       <BoardKnowledgeSourceList sources={scopedSources} />
     </SettingsCard>
+  );
+}
+
+function KnowledgeExtractionPreview({ result }: { result: KnowledgeExtractionResult | null }) {
+  if (!result?.evidence || !result.extractedText) {
+    return null;
+  }
+
+  return (
+    <div className="extraction-result">
+      <dl className="context-list">
+        <div>
+          <dt>Status</dt>
+          <dd>{result.status}</dd>
+        </div>
+        <div>
+          <dt>Source</dt>
+          <dd>{result.evidence.sourceTitle}</dd>
+        </div>
+        <div>
+          <dt>File</dt>
+          <dd>{result.evidence.fileName} | {result.evidence.contentKind} | {formatBytes(result.evidence.byteLength)}</dd>
+        </div>
+      </dl>
+      <pre className="preview-text">{result.extractedText.textPreview}</pre>
+      <BriefingList title="Warnings" items={result.warnings.map((warning) => warning.message)} />
+      <BriefingList title="Limitations" items={result.limitations.slice(0, 3)} />
+    </div>
   );
 }
 
@@ -1394,6 +1513,28 @@ function TextInput({
     <label className="settings-field">
       <span>{label}</span>
       <input placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
+      {help ? <small>{help}</small> : null}
+    </label>
+  );
+}
+
+function TextAreaInput({
+  label,
+  help,
+  placeholder,
+  value,
+  onChange
+}: {
+  label: string;
+  help?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="settings-field">
+      <span>{label}</span>
+      <textarea placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
       {help ? <small>{help}</small> : null}
     </label>
   );

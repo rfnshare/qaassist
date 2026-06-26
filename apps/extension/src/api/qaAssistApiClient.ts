@@ -8,6 +8,8 @@ import type {
   BoardKnowledgeUploadDraft,
   BoardScope,
   CurrentQaUserSettings,
+  KnowledgeExtractionRequest,
+  KnowledgeExtractionResult,
   QaWorkQueue,
   BoardSummary,
   StoryRequirementAnalysis,
@@ -92,6 +94,13 @@ export async function summarizeBoardKnowledge(
   }
 ): Promise<{ summary: BoardKnowledgeSummary }> {
   return postJson(apiBaseUrl, "/knowledge/board/summary", input);
+}
+
+export async function extractBoardKnowledgeText(
+  apiBaseUrl: string,
+  input: KnowledgeExtractionRequest
+): Promise<KnowledgeExtractionResult> {
+  return postJson(apiBaseUrl, "/knowledge/board/sources/extract-text", input);
 }
 
 export async function generateBoardBriefing(

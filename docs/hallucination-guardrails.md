@@ -23,4 +23,5 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Story description, acceptance criteria, fields, and relations fetched in Step 0014 are evidence inputs only.
 - Step 0015 deterministic Story analysis may summarize evidence and surface gaps/questions, but those outputs are not final facts. Gaps/questions, likely test areas, risks, assumptions, and needs-confirmation items need QA/BA/PO confirmation.
 - Step 0016 board knowledge metadata is not analyzed content. Do not cite metadata-only sources as requirement evidence until content upload/indexing and user confirmation exist.
+- Step 0017 extraction previews are extracted evidence previews only. Do not cite pasted text as final requirement truth, do not treat it as indexed knowledge, and do not include it in Story analysis until explicit evidence linking and user confirmation exist.
 - Test cases must not be generated or treated as final until a later confirmed-evidence workflow exists.

@@ -7,6 +7,7 @@ export * from "./boards/workQueue.js";
 export * from "./common/sourceProvider.js";
 export * from "./common/timestamps.js";
 export * from "./knowledge/boardKnowledge.js";
+export * from "./knowledge/knowledgeExtraction.js";
 export * from "./qa/qaAnalysisResult.js";
 export * from "./qa/qaEnums.js";
 export * from "./qa/testCase.js";

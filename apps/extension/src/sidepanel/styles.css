@@ -357,7 +357,8 @@ button {
 }
 
 .settings-field input,
-.settings-field select {
+.settings-field select,
+.settings-field textarea {
   width: 100%;
   min-height: 38px;
   border: 1px solid var(--border);
@@ -375,8 +376,19 @@ button {
   color: color-mix(in srgb, var(--text-muted) 66%, transparent);
 }
 
+.settings-field textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.settings-field textarea::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 66%, transparent);
+}
+
 .settings-field input:focus,
-.settings-field select:focus {
+.settings-field select:focus,
+.settings-field textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
@@ -621,6 +633,31 @@ button {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.extraction-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.extraction-result {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.preview-text {
+  max-height: 180px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface-muted);
+  font: 12px/1.45 Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
 }
 
 .work-list li {

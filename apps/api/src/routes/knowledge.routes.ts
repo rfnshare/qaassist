@@ -5,8 +5,10 @@ import type {
   BoardKnowledgeSourceType,
   BoardKnowledgeSummary,
   BoardKnowledgeUploadDraft,
-  BoardScope
+  BoardScope,
+  KnowledgeExtractionRequest
 } from "@qa-assist/shared";
+import { extractKnowledgeText } from "../knowledge/knowledgeExtraction.service.js";
 
 const SOURCE_TYPES: BoardKnowledgeSourceType[] = [
   "requirement-document",
@@ -28,6 +30,12 @@ type ValidateKnowledgeSourceBody = {
 type KnowledgeSummaryBody = {
   selectedBoard?: unknown;
   sources?: unknown;
+};
+
+type KnowledgeExtractionBody = {
+  selectedBoard?: unknown;
+  source?: unknown;
+  file?: unknown;
 };
 
 export async function registerKnowledgeRoutes(app: FastifyInstance): Promise<void> {
@@ -53,6 +61,12 @@ export async function registerKnowledgeRoutes(app: FastifyInstance): Promise<voi
     return {
       summary: buildSummary(selectedBoard, sources)
     };
+  });
+
+  app.post<{ Body: KnowledgeExtractionBody }>("/knowledge/board/sources/extract-text", async (request) => {
+    const extractionRequest = validateKnowledgeExtractionRequest(request.body);
+
+    return extractKnowledgeText(extractionRequest);
   });
 }
 
@@ -133,6 +147,63 @@ function validateFileMetadata(value: unknown): BoardKnowledgeUploadDraft["file"]
     fileType: normalizeOptionalString(value.fileType),
     sizeBytes: normalizeOptionalNumber(value.sizeBytes),
     addedBy: normalizeOptionalString(value.addedBy)
+  };
+}
+
+function validateKnowledgeExtractionRequest(body: KnowledgeExtractionBody | undefined): KnowledgeExtractionRequest {
+  if (!body || typeof body !== "object") {
+    throw badRequest("Request body is required.");
+  }
+
+  return {
+    selectedBoard: validateSelectedBoard(body.selectedBoard),
+    source: validateExtractionSource(body.source),
+    file: validateExtractionFile(body.file)
+  };
+}
+
+function validateExtractionSource(value: unknown): KnowledgeExtractionRequest["source"] {
+  if (!isObject(value)) {
+    throw badRequest("source is required.");
+  }
+
+  if (!isNonEmptyString(value.title)) {
+    throw badRequest("source.title is required.");
+  }
+
+  if (value.type !== undefined && !isSourceType(value.type)) {
+    throw badRequest("source.type is invalid.");
+  }
+
+  return {
+    id: normalizeOptionalString(value.id),
+    title: value.title.trim(),
+    type: value.type
+  };
+}
+
+function validateExtractionFile(value: unknown): KnowledgeExtractionRequest["file"] {
+  if (!isObject(value)) {
+    throw badRequest("file is required.");
+  }
+
+  if (!isNonEmptyString(value.fileName)) {
+    throw badRequest("file.fileName is required.");
+  }
+
+  if (!isNonEmptyString(value.textContent)) {
+    throw badRequest("file.textContent is required.");
+  }
+
+  if (value.sizeBytes !== undefined && (typeof value.sizeBytes !== "number" || !Number.isFinite(value.sizeBytes) || value.sizeBytes < 0)) {
+    throw badRequest("file.sizeBytes must be a non-negative number.");
+  }
+
+  return {
+    fileName: value.fileName.trim(),
+    fileType: normalizeOptionalString(value.fileType),
+    sizeBytes: normalizeOptionalNumber(value.sizeBytes),
+    textContent: value.textContent
   };
 }
 

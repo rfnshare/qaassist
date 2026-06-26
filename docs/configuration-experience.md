@@ -43,3 +43,11 @@ Local development may still use the backend-only PAT fallback from the API serve
 Step 0016 makes Board Knowledge a metadata-only configuration shell scoped to the selected team board. Users can add source type, title, description, tags, and optional file metadata such as name, type, and size.
 
 File contents are not read, uploaded, parsed, indexed, or sent to an LLM in this step. Added sources are configuration evidence only and must not be treated as analyzed requirement knowledge until a later upload/indexing and confirmation workflow exists.
+
+## Extraction Preview
+
+Step 0017 adds a backend-mediated extraction preview boundary for board knowledge. The extension still does not read arbitrary selected file contents. The file selector remains metadata-only, and the user must manually paste text into `Paste text for extraction preview`.
+
+Only `.txt` and `.md` text are accepted through the JSON-only preview route. PDF, DOCX, XLSX, images, archives, executable/binary files, multipart upload, storage, indexing, LLM ingestion, and Story analysis linkage remain intentionally inactive.
+
+The preview result is scoped to the selected team board and labeled as extracted evidence preview, not truth. It shows source/file evidence, byte and character length, warnings, and a capped text preview. Full extracted text is not persisted in extension settings.

@@ -16,6 +16,8 @@ import type {
   KnowledgeExtractionResult,
   StoryLinkedKnowledgeEvidence,
   StoryRequirementAnalysis,
+  TestCaseDraftGenerationResult,
+  TestCaseDraftSelectedInputs,
   WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
@@ -27,6 +29,7 @@ import {
   fetchBoardSummaryPreview,
   fetchWorkItemDetail,
   generateBoardBriefing,
+  generateTestCaseDrafts,
   listAzureTeams,
   summarizeBoardKnowledge,
   validateBoardKnowledgeSource
@@ -43,6 +46,7 @@ type FetchStatus = "idle" | "loading" | "success" | "error";
 type BriefingStatus = "idle" | "loading" | "success" | "error";
 type StoryDetailStatus = "idle" | "loading" | "success" | "error";
 type StoryAnalysisStatus = "idle" | "loading" | "success" | "error";
+type DraftGenerationStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -113,6 +117,16 @@ export function App() {
   const [storyAnalysisStatus, setStoryAnalysisStatus] = useState<StoryAnalysisStatus>("idle");
   const [storyAnalysisMessage, setStoryAnalysisMessage] = useState<string>("Fetch story details first.");
   const [storyAnalysis, setStoryAnalysis] = useState<StoryRequirementAnalysis | null>(null);
+  const [draftStatus, setDraftStatus] = useState<DraftGenerationStatus>("idle");
+  const [draftMessage, setDraftMessage] = useState("Analyze requirements before drafting test cases.");
+  const [draftResult, setDraftResult] = useState<TestCaseDraftGenerationResult | null>(null);
+  const [draftInputs, setDraftInputs] = useState<Required<TestCaseDraftSelectedInputs>>({
+    includePositivePath: true,
+    includeNegativePath: true,
+    includeRegression: true,
+    includeLinkedKnowledge: false,
+    includeUserConfirmedNotes: true
+  });
   const [selectedKnowledgeSourceIds, setSelectedKnowledgeSourceIds] = useState<string[]>([]);
   const [includeLatestExtraction, setIncludeLatestExtraction] = useState(false);
   const [userConfirmedNote, setUserConfirmedNote] = useState("");
@@ -159,6 +173,9 @@ export function App() {
     setStoryAnalysis(null);
     setStoryAnalysisStatus("idle");
     setStoryAnalysisMessage("Fetch story details first.");
+    setDraftResult(null);
+    setDraftStatus("idle");
+    setDraftMessage("Analyze requirements before drafting test cases.");
     setSelectedKnowledgeSourceIds([]);
     setIncludeLatestExtraction(false);
     setUserConfirmedNote("");
@@ -266,6 +283,9 @@ export function App() {
     setStoryAnalysis(null);
     setStoryAnalysisStatus("idle");
     setStoryAnalysisMessage("Fetch story details first.");
+    setDraftResult(null);
+    setDraftStatus("idle");
+    setDraftMessage("Analyze requirements before drafting test cases.");
 
     try {
       const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
@@ -316,10 +336,43 @@ export function App() {
       setStoryAnalysis(analysis);
       setStoryAnalysisStatus("success");
       setStoryAnalysisMessage("Evidence-bound preview analysis is ready.");
+      setDraftResult(null);
+      setDraftStatus("idle");
+      setDraftMessage("Analysis is ready. Draft cases are still not generated.");
     } catch (error) {
       setStoryAnalysis(null);
       setStoryAnalysisStatus("error");
       setStoryAnalysisMessage(error instanceof Error ? error.message : "Requirement analysis failed.");
+      setDraftResult(null);
+      setDraftStatus("idle");
+      setDraftMessage("Analyze requirements before drafting test cases.");
+    }
+  }
+
+  async function generateDraftCases(): Promise<void> {
+    if (!workItemDetail || !storyAnalysis) {
+      setDraftStatus("error");
+      setDraftMessage("Analyze requirements before drafting test cases.");
+      return;
+    }
+
+    setDraftStatus("loading");
+    setDraftMessage("Generating deterministic draft cases...");
+
+    try {
+      const result = await generateTestCaseDrafts(settings.apiBaseUrl, {
+        workItem: workItemDetail,
+        analysis: storyAnalysis,
+        selectedDraftInputs: draftInputs
+      });
+
+      setDraftResult(result);
+      setDraftStatus("success");
+      setDraftMessage("Draft cases generated. QA review is required before use.");
+    } catch (error) {
+      setDraftResult(null);
+      setDraftStatus("error");
+      setDraftMessage(error instanceof Error ? error.message : "Draft generation failed.");
     }
   }
 
@@ -358,6 +411,11 @@ export function App() {
           storyAnalysisStatus,
           storyAnalysisMessage,
           storyAnalysis,
+          draftStatus,
+          draftMessage,
+          draftResult,
+          draftInputs,
+          setDraftInputs,
           selectedKnowledgeSourceIds,
           setSelectedKnowledgeSourceIds,
           includeLatestExtraction,
@@ -368,6 +426,7 @@ export function App() {
           setLatestExtractionResult,
           onFetchStoryDetail: fetchStoryDetail,
           onAnalyzeStory: analyzeStory,
+          onGenerateDraftCases: generateDraftCases,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -405,6 +464,11 @@ function renderPanel(props: {
   storyAnalysisStatus: StoryAnalysisStatus;
   storyAnalysisMessage: string;
   storyAnalysis: StoryRequirementAnalysis | null;
+  draftStatus: DraftGenerationStatus;
+  draftMessage: string;
+  draftResult: TestCaseDraftGenerationResult | null;
+  draftInputs: Required<TestCaseDraftSelectedInputs>;
+  setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
   setSelectedKnowledgeSourceIds: (sourceIds: string[]) => void;
   includeLatestExtraction: boolean;
@@ -415,6 +479,7 @@ function renderPanel(props: {
   setLatestExtractionResult: (result: KnowledgeExtractionResult | null) => void;
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
+  onGenerateDraftCases: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -445,6 +510,11 @@ function renderPanel(props: {
           analysis={props.storyAnalysis}
           analysisStatus={props.storyAnalysisStatus}
           analysisMessage={props.storyAnalysisMessage}
+          draftStatus={props.draftStatus}
+          draftMessage={props.draftMessage}
+          draftResult={props.draftResult}
+          draftInputs={props.draftInputs}
+          setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
           setSelectedKnowledgeSourceIds={props.setSelectedKnowledgeSourceIds}
           includeLatestExtraction={props.includeLatestExtraction}
@@ -454,6 +524,7 @@ function renderPanel(props: {
           latestExtractionResult={props.latestExtractionResult}
           onFetchStoryDetail={props.onFetchStoryDetail}
           onAnalyzeStory={props.onAnalyzeStory}
+          onGenerateDraftCases={props.onGenerateDraftCases}
         />
       );
     case "run":
@@ -562,6 +633,11 @@ function StoryPanel({
   analysis,
   analysisStatus,
   analysisMessage,
+  draftStatus,
+  draftMessage,
+  draftResult,
+  draftInputs,
+  setDraftInputs,
   selectedKnowledgeSourceIds,
   setSelectedKnowledgeSourceIds,
   includeLatestExtraction,
@@ -570,7 +646,8 @@ function StoryPanel({
   setUserConfirmedNote,
   latestExtractionResult,
   onFetchStoryDetail,
-  onAnalyzeStory
+  onAnalyzeStory,
+  onGenerateDraftCases
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -581,6 +658,11 @@ function StoryPanel({
   analysis: StoryRequirementAnalysis | null;
   analysisStatus: StoryAnalysisStatus;
   analysisMessage: string;
+  draftStatus: DraftGenerationStatus;
+  draftMessage: string;
+  draftResult: TestCaseDraftGenerationResult | null;
+  draftInputs: Required<TestCaseDraftSelectedInputs>;
+  setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
   setSelectedKnowledgeSourceIds: (sourceIds: string[]) => void;
   includeLatestExtraction: boolean;
@@ -590,6 +672,7 @@ function StoryPanel({
   latestExtractionResult: KnowledgeExtractionResult | null;
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
+  onGenerateDraftCases: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -645,6 +728,15 @@ function StoryPanel({
             message={analysisMessage}
             canAnalyze={Boolean(detail)}
             onAnalyze={onAnalyzeStory}
+          />
+          <TestCaseDraftCard
+            analysis={analysis}
+            status={draftStatus}
+            message={draftMessage}
+            result={draftResult}
+            inputs={draftInputs}
+            onInputsChange={setDraftInputs}
+            onGenerate={onGenerateDraftCases}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -872,6 +964,112 @@ function StoryAnalysisResult({ analysis }: { analysis: StoryRequirementAnalysis 
       <p className="trust-note">{analysis.disclaimer}</p>
       <p className="trust-note">Linked board knowledge is user-selected context only. Metadata-only and extracted preview evidence are not complete or authoritative.</p>
       <p className="analysis-empty">Test case draft not generated yet.</p>
+    </div>
+  );
+}
+
+function TestCaseDraftCard({
+  analysis,
+  status,
+  message,
+  result,
+  inputs,
+  onInputsChange,
+  onGenerate
+}: {
+  analysis: StoryRequirementAnalysis | null;
+  status: DraftGenerationStatus;
+  message: string;
+  result: TestCaseDraftGenerationResult | null;
+  inputs: Required<TestCaseDraftSelectedInputs>;
+  onInputsChange: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
+  onGenerate: () => void;
+}) {
+  function toggleInput(key: keyof Required<TestCaseDraftSelectedInputs>): void {
+    onInputsChange({ ...inputs, [key]: !inputs[key] });
+  }
+
+  return (
+    <article className="info-card draft-card">
+      <div className="card-row">
+        <h3>Draft test cases</h3>
+        <span className="status-pill">Draft only</span>
+      </div>
+      <p>{message}</p>
+      <div className="choice-list compact">
+        <DraftOption label="Include positive path" checked={inputs.includePositivePath} onChange={() => toggleInput("includePositivePath")} />
+        <DraftOption label="Include negative path" checked={inputs.includeNegativePath} onChange={() => toggleInput("includeNegativePath")} />
+        <DraftOption label="Include regression" checked={inputs.includeRegression} onChange={() => toggleInput("includeRegression")} />
+        <DraftOption label="Include linked knowledge" checked={inputs.includeLinkedKnowledge} onChange={() => toggleInput("includeLinkedKnowledge")} />
+      </div>
+      <SecondaryAction
+        label={status === "loading" ? "Generating draft cases..." : "Generate draft cases"}
+        disabled={!analysis || status === "loading"}
+        onClick={onGenerate}
+      />
+      {!analysis ? <p className="analysis-empty">Analyze requirements before drafting test cases.</p> : null}
+      {result ? <TestCaseDraftResult result={result} /> : null}
+    </article>
+  );
+}
+
+function DraftOption({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return (
+    <label className="choice-row compact">
+      <input type="checkbox" checked={checked} onChange={onChange} />
+      <span>
+        <strong>{label}</strong>
+      </span>
+    </label>
+  );
+}
+
+function TestCaseDraftResult({ result }: { result: TestCaseDraftGenerationResult }) {
+  return (
+    <div className="draft-result">
+      <InfoGrid
+        items={[
+          ["Coverage", result.coverageSummary],
+          ["Draft count", String(result.draftCases.length)],
+          ["Mode", result.mode],
+          ["Status", result.blockedBy.length > 0 ? "Blocked by gaps" : "Needs QA review"]
+        ]}
+      />
+      <AnalysisList title="Draft warnings" items={result.warnings.map((warning) => warning.message)} />
+      <AnalysisList title="Needs confirmation" items={result.needsConfirmation.slice(0, 5)} />
+      <div className="draft-list">
+        {result.draftCases.map((draftCase) => (
+          <article className="draft-case" key={draftCase.id}>
+            <div className="card-row">
+              <h4>{draftCase.title}</h4>
+              <span className="status-pill">{draftCase.status}</span>
+            </div>
+            <p>{draftCase.objective}</p>
+            <InfoGrid
+              items={[
+                ["Priority", draftCase.priority],
+                ["Certainty", draftCase.certainty],
+                ["Type", draftCase.testType]
+              ]}
+            />
+            <BriefingList title="Preconditions" items={draftCase.preconditions} />
+            <div className="briefing-list">
+              <span>Steps</span>
+              <ol>
+                {draftCase.steps.map((step) => (
+                  <li key={step.order}>
+                    {step.action} Expected: {step.expectedResult}
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <p><strong>Expected result:</strong> {draftCase.expectedResult}</p>
+            <BriefingList title="Evidence links" items={draftCase.evidenceLinks.map((link) => `${link.label} (${link.certainty})`)} />
+            <BriefingList title="Warnings" items={draftCase.warnings.map((warning) => warning.message)} />
+          </article>
+        ))}
+      </div>
+      <p className="trust-note">{result.disclaimer}</p>
     </div>
   );
 }

@@ -25,9 +25,11 @@ Step 0014 turns Story into the first real QA workspace foundation. When a suppor
 
 Step 0015 adds deterministic requirement and gap analysis after work item detail is fetched. The analysis uses only fetched title, type, state, description, acceptance criteria, tags, fields, relations, and metadata. It must be labeled as evidence-bound preview output, not LLM-generated output.
 
-Fetched description and acceptance criteria are evidence, not final truth. Requirement summary, gaps/questions, likely test areas, risks, assumptions, and needs-confirmation items remain reviewable and non-final until QA/BA/PO confirms them. Test case draft generation is still inactive.
+Fetched description and acceptance criteria are evidence, not final truth. Requirement summary, gaps/questions, likely test areas, risks, assumptions, and needs-confirmation items remain reviewable and non-final until QA/BA/PO confirms them.
 
 Step 0016 adds board knowledge metadata in Settings. Step 0017 adds manual-paste extraction preview for `.txt` and `.md` text. Step 0018 lets the user explicitly select metadata-only sources, the latest extraction preview, or a short user-confirmed note before Story analysis. Story analysis should distinguish Azure work item evidence, board knowledge metadata evidence, extracted preview evidence, user-confirmed notes, assumptions, and needs-confirmation items.
+
+Step 0019 adds deterministic draft test case generation after Story analysis. Drafts must stay labeled as draft-only, cite evidence links, show warnings for missing/weak evidence, and avoid Azure Test Plans creation until a later explicit approval flow exists.
 
 ## Setup Flow
 

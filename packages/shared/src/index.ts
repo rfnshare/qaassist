@@ -14,6 +14,7 @@ export * from "./qa/testCase.js";
 export * from "./recommendations/workRecommendation.js";
 export * from "./settings/azureDevOpsSettings.js";
 export * from "./settings/currentQaUser.js";
+export * from "./test-cases/testCaseDraft.js";
 export * from "./test-management/testManagementSettings.js";
 export * from "./work-items/workItemContext.js";
 export * from "./work-items/workItemDetail.js";

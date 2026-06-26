@@ -22,6 +22,7 @@ docs/prompts/0015-story-requirement-gap-analysis.md
 docs/prompts/0016-board-knowledge-foundation.md
 docs/prompts/0017-safe-file-extraction-foundation.md
 docs/prompts/0018-knowledge-evidence-story-analysis.md
+docs/prompts/0019-test-case-draft-generation.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -46,3 +47,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0016-board-knowledge-foundation`: board knowledge metadata contracts, metadata-only backend validation/summary routes, Settings metadata-only UI, and docs without file content upload/parsing/indexing, LLM calls, write-back, or fake documents.
 - `0017-safe-file-extraction-foundation`: shared extraction contracts, backend `.txt`/`.md` extraction policy and JSON preview route, Settings manual-paste extraction preview UI, and docs without multipart upload, storage, indexing, LLM ingestion, Story analysis linkage, or write-back.
 - `0018-knowledge-evidence-story-analysis`: explicit user-selected board knowledge evidence linking for deterministic Story analysis, evidence coverage output, metadata/extraction preview warnings, and docs without automatic indexing, LLM calls, full document persistence, generated test cases, or write-back.
+- `0019-test-case-draft-generation`: deterministic test case draft contracts, backend draft generation route, Story draft UI, evidence links, warnings, and docs without LLM calls, Azure Test Plans creation, final test case approval, persistence, or write-back.

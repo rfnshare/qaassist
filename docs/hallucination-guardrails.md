@@ -22,4 +22,5 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Future LLM-assisted briefing must stay backend-mediated and must not treat unverified inference as fact.
 - Story description, acceptance criteria, fields, and relations fetched in Step 0014 are evidence inputs only.
 - Step 0015 deterministic Story analysis may summarize evidence and surface gaps/questions, but those outputs are not final facts. Gaps/questions, likely test areas, risks, assumptions, and needs-confirmation items need QA/BA/PO confirmation.
+- Step 0016 board knowledge metadata is not analyzed content. Do not cite metadata-only sources as requirement evidence until content upload/indexing and user confirmation exist.
 - Test cases must not be generated or treated as final until a later confirmed-evidence workflow exists.

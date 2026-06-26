@@ -3,6 +3,9 @@ import type {
   AzureDevOpsProjectOption,
   AzureDevOpsTeamOption,
   BoardBriefing,
+  BoardKnowledgeSource,
+  BoardKnowledgeSummary,
+  BoardKnowledgeUploadDraft,
   BoardScope,
   CurrentQaUserSettings,
   QaWorkQueue,
@@ -69,6 +72,26 @@ export async function analyzeStoryRequirements(
   workItem: WorkItemDetail
 ): Promise<StoryRequirementAnalysis> {
   return postJson(apiBaseUrl, "/analysis/story-requirements", { workItem });
+}
+
+export async function validateBoardKnowledgeSource(
+  apiBaseUrl: string,
+  input: {
+    selectedBoard: BoardScope;
+    source: BoardKnowledgeUploadDraft;
+  }
+): Promise<{ source: BoardKnowledgeSource }> {
+  return postJson(apiBaseUrl, "/knowledge/board/sources/validate", input);
+}
+
+export async function summarizeBoardKnowledge(
+  apiBaseUrl: string,
+  input: {
+    selectedBoard: BoardScope;
+    sources: BoardKnowledgeSource[];
+  }
+): Promise<{ summary: BoardKnowledgeSummary }> {
+  return postJson(apiBaseUrl, "/knowledge/board/summary", input);
 }
 
 export async function generateBoardBriefing(

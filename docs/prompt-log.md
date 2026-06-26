@@ -19,6 +19,7 @@ docs/prompts/0012-azure-connection-team-discovery.md
 docs/prompts/0013-ai-board-briefing-foundation.md
 docs/prompts/0014-azure-work-item-detail-story-workspace.md
 docs/prompts/0015-story-requirement-gap-analysis.md
+docs/prompts/0016-board-knowledge-foundation.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -40,3 +41,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0013-ai-board-briefing-foundation`: shared board briefing contracts, deterministic backend evidence-bound briefing generation, Today briefing UI, and docs for future backend-mediated LLM support without provider calls or write-back.
 - `0014-azure-work-item-detail-story-workspace`: shared work item detail contracts, backend read-only Azure work item detail fetch route, extension API client integration, Story workspace source-backed detail UI, and docs without LLM analysis, write-back, PAT storage, comments, bug creation, or generated test cases.
 - `0015-story-requirement-gap-analysis`: shared Story requirement analysis contracts, deterministic backend evidence-bound analysis route, extension Story analysis UI, and docs without LLM calls, write-back, PAT storage, generated test cases, or fake story data.
+- `0016-board-knowledge-foundation`: board knowledge metadata contracts, metadata-only backend validation/summary routes, Settings metadata-only UI, and docs without file content upload/parsing/indexing, LLM calls, write-back, or fake documents.

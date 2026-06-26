@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import type {
   AzureDevOpsConnectionInfo,
   AzureDevOpsConnectionMode,
@@ -7,6 +7,9 @@ import type {
   AzureDevOpsProjectOption,
   AzureDevOpsTeamOption,
   BoardBriefing,
+  BoardKnowledgeSource,
+  BoardKnowledgeSourceType,
+  BoardKnowledgeUploadDraft,
   BoardScope,
   BoardSummary,
   CurrentQaUserSettings,
@@ -21,7 +24,9 @@ import {
   fetchBoardSummaryPreview,
   fetchWorkItemDetail,
   generateBoardBriefing,
-  listAzureTeams
+  listAzureTeams,
+  summarizeBoardKnowledge,
+  validateBoardKnowledgeSource
 } from "../api/qaAssistApiClient";
 import type { AzureDevOpsPageContext } from "../adapters/azureDevOpsPageAdapter";
 import { EXTENSION_MESSAGES, type ExtensionMessage } from "../shared/extensionMessages";
@@ -51,6 +56,7 @@ type ExtensionSettings = {
   iterationPath: string;
   currentQaUserDisplayName: string;
   currentQaUserEmail: string;
+  boardKnowledgeSources: BoardKnowledgeSource[];
 };
 
 const THEME_STORAGE_KEY = "qaAssistTheme";
@@ -69,8 +75,21 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   board: "",
   iterationPath: "",
   currentQaUserDisplayName: "",
-  currentQaUserEmail: ""
+  currentQaUserEmail: "",
+  boardKnowledgeSources: []
 };
+
+const BOARD_KNOWLEDGE_SOURCE_TYPE_OPTIONS: Array<{ label: string; value: BoardKnowledgeSourceType }> = [
+  { label: "Requirement document", value: "requirement-document" },
+  { label: "Meeting transcript", value: "meeting-transcript" },
+  { label: "BA/PO Q&A", value: "ba-po-qa" },
+  { label: "Product rule", value: "product-rule" },
+  { label: "Release note", value: "release-note" },
+  { label: "Test note", value: "test-note" },
+  { label: "Known risk", value: "known-risk" },
+  { label: "Automation reference", value: "automation-reference" },
+  { label: "Other", value: "other" }
+];
 
 export function App() {
   const [activePanel, setActivePanel] = useState<PanelKey>("today");
@@ -676,6 +695,7 @@ function StoryAnalysisResult({ analysis }: { analysis: StoryRequirementAnalysis 
       <AnalysisList title="Assumptions" items={analysis.assumptions.slice(0, 4)} />
       <AnalysisList title="Needs confirmation" items={analysis.needsConfirmation.slice(0, 5)} />
       <p className="trust-note">{analysis.disclaimer}</p>
+      <p className="trust-note">Board knowledge is not included in this analysis yet. Future analysis will combine work item evidence with board-scoped knowledge after upload/indexing is enabled.</p>
       <p className="analysis-empty">Test case draft not generated yet.</p>
     </div>
   );
@@ -939,15 +959,11 @@ function SettingsPanel({
           ]}
         />
       </SettingsCard>
-      <SettingsCard title="Board Knowledge" body="Board-wise knowledge is future scoped context, not active upload/storage.">
-        <InfoGrid
-          items={[
-            ["Requirement upload", "Placeholder for PRDs and requirement files scoped to the selected team board."],
-            ["Meeting transcript", "Placeholder for transcript context after explicit upload."],
-            ["BA Q&A and product rules", "Placeholder for confirmed answers and rules."]
-          ]}
-        />
-      </SettingsCard>
+      <BoardKnowledgeSettingsCard
+        settings={settings}
+        selectedTeamReady={selectedTeamReady}
+        onSettingsChange={onSettingsChange}
+      />
       <SettingsCard title="AI Analysis" body="AI support will be backend-mediated and evidence-bound. No LLM calls are active yet.">
         <InfoGrid
           items={[
@@ -984,6 +1000,134 @@ function SettingsPanel({
         </details>
       </SettingsCard>
     </section>
+  );
+}
+
+function BoardKnowledgeSettingsCard({
+  settings,
+  selectedTeamReady,
+  onSettingsChange
+}: {
+  settings: ExtensionSettings;
+  selectedTeamReady: boolean;
+  onSettingsChange: (settings: ExtensionSettings) => void;
+}) {
+  const [sourceType, setSourceType] = useState<BoardKnowledgeSourceType>("requirement-document");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [tags, setTags] = useState("");
+  const [fileMetadata, setFileMetadata] = useState<BoardKnowledgeUploadDraft["file"]>();
+  const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [message, setMessage] = useState("Content upload and indexing are not active yet. This step stores only source metadata for review.");
+
+  const selectedBoard = selectedTeamReady ? buildBoardScope(settings) : null;
+  const scopedSources = selectedBoard
+    ? settings.boardKnowledgeSources.filter((source) => isSameBoardKnowledgeScope(source, selectedBoard))
+    : [];
+
+  async function addMetadataOnlySource(): Promise<void> {
+    if (!selectedBoard) {
+      setStatus("error");
+      setMessage("Select a team board before adding board knowledge metadata.");
+      return;
+    }
+
+    setStatus("saving");
+    setMessage("Validating metadata only. File content is not read or uploaded.");
+
+    try {
+      const draft: BoardKnowledgeUploadDraft = {
+        type: sourceType,
+        title,
+        description,
+        file: fileMetadata,
+        tags: parseTags(tags),
+        privacyNote: "Metadata only. Content upload and indexing are not active yet."
+      };
+      const result = await validateBoardKnowledgeSource(settings.apiBaseUrl, { selectedBoard, source: draft });
+      const nextSources = [...settings.boardKnowledgeSources, result.source];
+      const scopedNextSources = nextSources.filter((source) => isSameBoardKnowledgeScope(source, selectedBoard));
+      const summaryResult = await summarizeBoardKnowledge(settings.apiBaseUrl, { selectedBoard, sources: scopedNextSources });
+
+      onSettingsChange({ ...settings, boardKnowledgeSources: nextSources });
+      setTitle("");
+      setDescription("");
+      setTags("");
+      setFileMetadata(undefined);
+      setStatus("success");
+      setMessage(`Metadata source added. ${summaryResult.summary.totalSources} source${summaryResult.summary.totalSources === 1 ? "" : "s"} configured for this board.`);
+    } catch (error) {
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : "Board knowledge metadata validation failed.");
+    }
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+    setFileMetadata(file
+      ? {
+          fileName: file.name,
+          fileType: file.type || undefined,
+          sizeBytes: file.size
+        }
+      : undefined);
+  }
+
+  return (
+    <SettingsCard
+      title="Board Knowledge"
+      status={<span className="status-pill">Metadata only</span>}
+      body="Configure board-scoped knowledge source metadata. Content upload, parsing, indexing, and analysis are not active yet."
+    >
+      <SelectedTeamBanner settings={settings} />
+      <InfoCard
+        title="Metadata-only foundation"
+        body="Content upload and indexing are not active yet. This step stores only source metadata for review."
+      />
+      <div className="settings-form">
+        <SelectInput
+          label="Source type"
+          value={sourceType}
+          options={BOARD_KNOWLEDGE_SOURCE_TYPE_OPTIONS}
+          placeholder="Choose source type"
+          onChange={(value) => setSourceType(value as BoardKnowledgeSourceType)}
+        />
+        <TextInput label="Source title" value={title} onChange={setTitle} />
+        <TextInput label="Source description optional" value={description} onChange={setDescription} />
+        <TextInput label="Tags optional" help="Comma-separated labels, for example checkout, release-risk." value={tags} onChange={setTags} />
+        <label className="settings-field">
+          <span>File metadata optional</span>
+          <input type="file" onChange={handleFileChange} />
+          <small>{fileMetadata ? `${fileMetadata.fileName} (${formatBytes(fileMetadata.sizeBytes)}) metadata selected. File bytes are not read or sent.` : "Only name, type, and size are captured. File contents are not uploaded."}</small>
+        </label>
+      </div>
+      <SecondaryAction label={status === "saving" ? "Adding metadata..." : "Add metadata-only source"} disabled={!selectedTeamReady || status === "saving"} onClick={addMetadataOnlySource} />
+      <InfoCard title="Knowledge status" body={message} tone={status === "error" ? "warning" : "neutral"} />
+      <BoardKnowledgeSourceList sources={scopedSources} />
+    </SettingsCard>
+  );
+}
+
+function BoardKnowledgeSourceList({ sources }: { sources: BoardKnowledgeSource[] }) {
+  if (sources.length === 0) {
+    return <InfoCard title="Configured sources" body="No metadata-only board knowledge sources configured for this selected team board." />;
+  }
+
+  return (
+    <article className="info-card">
+      <h3>Configured sources</h3>
+      <ul className="knowledge-source-list">
+        {sources.map((source) => (
+          <li key={source.id}>
+            <div>
+              <strong>{source.title}</strong>
+              <span>{formatSourceType(source.type)} | {source.status}</span>
+            </div>
+            <p>{source.evidenceLabel}</p>
+          </li>
+        ))}
+      </ul>
+    </article>
   );
 }
 
@@ -1383,6 +1527,42 @@ function formatBoardLabel(board: BoardScope): string {
 function normalizeOptional(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function isSameBoardKnowledgeScope(source: BoardKnowledgeSource, board: BoardScope): boolean {
+  return source.scope.organization === board.organization
+    && source.scope.project === board.project
+    && source.scope.team === board.team;
+}
+
+function parseTags(value: string): string[] {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function formatSourceType(type: BoardKnowledgeSourceType): string {
+  return type
+    .split("-")
+    .map((part) => part.toUpperCase() === "QA" ? "QA" : part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatBytes(value: number | undefined): string {
+  if (value === undefined) {
+    return "size not available";
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatMetric(value: string | number | undefined, sourceDescription: string | undefined): string {

@@ -27,8 +27,12 @@ Step 0015 adds deterministic requirement and gap analysis after work item detail
 
 Fetched description and acceptance criteria are evidence, not final truth. Requirement summary, gaps/questions, likely test areas, risks, assumptions, and needs-confirmation items remain reviewable and non-final until QA/BA/PO confirms them. Test case draft generation is still inactive.
 
+Step 0016 adds board knowledge metadata in Settings. Story analysis must continue to say board knowledge is not included yet until upload/indexing is enabled. Future Story analysis should distinguish Azure work item evidence, uploaded requirement evidence, transcript evidence, BA/PO confirmed answers, assumptions, and needs-confirmation items.
+
 ## Setup Flow
 
 Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.
 
 After a team board is selected, Today should show `Selected Team: {organization}/{project}/{team}` and keep read-only board condition preview available. AI board briefing remains deterministic preview output unless a future backend LLM adapter is explicitly configured.
+
+Board Knowledge settings should show the selected team board scope and stay compact. The user can add metadata-only sources, but QA Assist should not imply those documents have been uploaded, parsed, indexed, or analyzed.

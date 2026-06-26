@@ -17,3 +17,4 @@
 - Step 0013 board briefing is deterministic preview logic unless a future backend LLM adapter is explicitly configured. The extension must not store AI keys or call model providers directly.
 - Step 0014 work item detail fetch is read-only and backend-mediated. The extension must not call Azure DevOps directly, collect PATs, store secrets, or log private story descriptions and acceptance criteria.
 - Step 0015 Story requirement analysis is deterministic backend logic and does not call LLM providers. Future LLM-assisted analysis must remain backend-mediated, avoid extension-side AI keys, and require source labels plus user confirmation.
+- Step 0016 Board Knowledge is metadata-only. The extension may store non-secret source metadata scoped to the selected team board, but it must not read file contents, upload file bytes, index content, or send board knowledge to an LLM.

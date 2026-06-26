@@ -37,3 +37,9 @@ Local development may still use the backend-only PAT fallback from the API serve
 - AI Analysis: AI board briefing and story analysis placeholders with source labels.
 - Automation: local repo, GitHub, Azure Repos, QA Assist-managed workspace, and manual export options.
 - Privacy & Approval: no silent write-back, user confirmation, evidence-bound output, and future AI minimization/redaction.
+
+## Board Knowledge Metadata
+
+Step 0016 makes Board Knowledge a metadata-only configuration shell scoped to the selected team board. Users can add source type, title, description, tags, and optional file metadata such as name, type, and size.
+
+File contents are not read, uploaded, parsed, indexed, or sent to an LLM in this step. Added sources are configuration evidence only and must not be treated as analyzed requirement knowledge until a later upload/indexing and confirmation workflow exists.

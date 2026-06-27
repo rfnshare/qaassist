@@ -28,6 +28,7 @@ docs/prompts/0021-test-plans-readiness-preview.md
 docs/prompts/0022-test-plans-explicit-creation-flow.md
 docs/prompts/0023-backend-llm-provider-adapter.md
 docs/prompts/0024-automation-candidate-mapping.md
+docs/prompts/0025-export-package-review-output.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -58,3 +59,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0022-test-plans-explicit-creation-flow`: backend-mediated Azure Test Plans creation for explicitly selected readiness candidates after final confirmation, with created/failed/skipped results and docs without silent write-back, story linking, LLM calls, PAT storage, or persistence.
 - `0023-backend-llm-provider-adapter`: optional backend-only LLM provider status and Story assist route, Settings provider status UI, and separate AI-assisted suggestions without extension secrets, mandatory LLM use, write-back, persistence, or deterministic flow replacement.
 - `0024-automation-candidate-mapping`: deterministic automation candidate mapping from validated reviewed cases with readiness, reasons, blockers, and planning-only UI without Playwright generation, repo writes, CI/CD changes, LLM calls, or persistence.
+- `0025-export-package-review-output`: portable Markdown/JSON review package export from selected current-session sections with trust labels and copy/download UI without external writes, secrets, LLM calls, repo writes, or persistence.

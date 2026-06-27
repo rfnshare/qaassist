@@ -14,6 +14,8 @@ import type {
   KnowledgeExtractionResult,
   LlmProviderConfigurationSummary,
   QaWorkQueue,
+  ReviewExportRequest,
+  ReviewExportResult,
   BoardSummary,
   StoryAnalysisAssistRequest,
   StoryAnalysisAssistResult,
@@ -123,6 +125,13 @@ export async function mapAutomationCandidates(
   input: AutomationCandidateMappingRequest
 ): Promise<AutomationCandidateMappingResult> {
   return postJson(apiBaseUrl, "/automation/candidates/map", input);
+}
+
+export async function exportReviewPackage(
+  apiBaseUrl: string,
+  input: ReviewExportRequest
+): Promise<ReviewExportResult> {
+  return postJson(apiBaseUrl, "/export/review-package", input);
 }
 
 export async function fetchLlmProviderStatus(apiBaseUrl: string): Promise<LlmProviderConfigurationSummary> {

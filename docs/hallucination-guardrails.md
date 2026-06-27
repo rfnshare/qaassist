@@ -31,4 +31,5 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Step 0022 creation results must say exactly which selected test cases were created, failed, or skipped. Do not imply non-selected cases, blocked cases, story links, bugs, automation, or comments were created.
 - Step 0023 LLM-assisted Story analysis is a separate suggestion layer on top of deterministic evidence. It must be labeled `llm-assisted`, keep deterministic analysis visible, avoid treating provider output as fact, and require QA confirmation.
 - Step 0024 automation mapping may suggest UI, API, mixed, or manual-only readiness from reviewed case evidence, but it must not claim a case has an automation script, framework coverage, or CI readiness. Reasons and blockers must stay visible and planning-only.
+- Step 0025 exports must preserve trust labels: deterministic evidence, AI-assisted suggestions, draft-only cases, reviewed local/session output, readiness preview-only output, explicit creation results, and automation planning-only output.
 - Test cases must not be treated as final outside Azure Test Plans until reviewed and confirmed by the QA user.

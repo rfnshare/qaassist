@@ -26,10 +26,7 @@
 - 0022 Azure Test Plans explicit creation approval flow.
 - 0023 Optional backend LLM provider adapter.
 - 0024 Automation candidate mapping.
-
-## 0025 Export/Package Review Output
-
-Package reviewed local/session output for copy/export review without silent write-back.
+- 0025 Export/package review output.
 
 ## 0026 Story/Bug Write-Back Helpers
 
@@ -42,6 +39,10 @@ Expand backend-mediated LLM assistance to board briefing, draft refinement, and 
 ## 0028 Optional Automation Generation Scaffold
 
 Design a reviewed scaffold for future automation generation without default repo writes, framework generation, or CI changes.
+
+## 0029 Team Reporting/Analytics
+
+Summarize team-level QA activity only after privacy, scope, and persistence rules are explicitly designed.
 
 ## Later Story Workspace Requirement Discussion
 

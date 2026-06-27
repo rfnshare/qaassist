@@ -8,6 +8,7 @@ import { registerAnalysisRoutes } from "./routes/analysis.routes.js";
 import { registerAiRoutes } from "./routes/ai.routes.js";
 import { registerAutomationRoutes } from "./routes/automation.routes.js";
 import { registerBriefingRoutes } from "./routes/briefings.routes.js";
+import { registerExportRoutes } from "./routes/export.routes.js";
 import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerKnowledgeRoutes } from "./routes/knowledge.routes.js";
 import { registerTestCaseDraftRoutes } from "./routes/testCaseDraft.routes.js";
@@ -34,6 +35,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerAutomationRoutes(app);
   await registerAzureDevOpsRoutes(app, env);
   await registerBriefingRoutes(app);
+  await registerExportRoutes(app);
   await registerKnowledgeRoutes(app);
   await registerTestCaseDraftRoutes(app);
   await registerTestCaseReviewRoutes(app);

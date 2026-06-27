@@ -17,6 +17,9 @@ import type {
   CurrentQaUserSettings,
   KnowledgeExtractionResult,
   LlmProviderConfigurationSummary,
+  ReviewExportFormat,
+  ReviewExportResult,
+  ReviewExportSection,
   StoryLinkedKnowledgeEvidence,
   StoryAnalysisAssistResult,
   StoryRequirementAnalysis,
@@ -37,6 +40,7 @@ import {
   connectAzureDevOps,
   createTestPlansCases,
   extractBoardKnowledgeText,
+  exportReviewPackage,
   fetchBoardSummaryPreview,
   fetchWorkItemDetail,
   fetchLlmProviderStatus,
@@ -68,6 +72,7 @@ type ReviewStatus = "idle" | "loading" | "success" | "error";
 type TestPlansReadinessStatus = "idle" | "loading" | "success" | "error";
 type TestPlansCreationRequestStatus = "idle" | "loading" | "success" | "error";
 type AutomationMappingStatus = "idle" | "loading" | "success" | "error";
+type ReviewExportStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -94,6 +99,23 @@ type ExtensionSettings = {
 const THEME_STORAGE_KEY = "qaAssistTheme";
 const SETTINGS_STORAGE_KEY = "qaAssistSettings";
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:4317";
+const DEFAULT_EXPORT_SECTIONS: ReviewExportSection[] = [
+  "story-context",
+  "story-analysis",
+  "review-session",
+  "test-plans-readiness",
+  "automation-candidates"
+];
+const REVIEW_EXPORT_SECTION_OPTIONS: Array<{ label: string; value: ReviewExportSection }> = [
+  { label: "Story context", value: "story-context" },
+  { label: "Story analysis", value: "story-analysis" },
+  { label: "AI assist", value: "ai-assist" },
+  { label: "Draft cases", value: "draft-cases" },
+  { label: "Review session", value: "review-session" },
+  { label: "Readiness", value: "test-plans-readiness" },
+  { label: "Creation results", value: "test-plans-creation" },
+  { label: "Automation", value: "automation-candidates" }
+];
 const DEFAULT_SETTINGS: ExtensionSettings = {
   apiBaseUrl: DEFAULT_API_BASE_URL,
   azureServerUrl: "",
@@ -174,6 +196,11 @@ export function App() {
     preferApi: false,
     includeBlocked: false
   });
+  const [reviewExportStatus, setReviewExportStatus] = useState<ReviewExportStatus>("idle");
+  const [reviewExportMessage, setReviewExportMessage] = useState("Export package is available after useful Story data exists.");
+  const [reviewExportResult, setReviewExportResult] = useState<ReviewExportResult | null>(null);
+  const [reviewExportFormat, setReviewExportFormat] = useState<ReviewExportFormat>("markdown");
+  const [reviewExportSections, setReviewExportSections] = useState<ReviewExportSection[]>(DEFAULT_EXPORT_SECTIONS);
   const [draftInputs, setDraftInputs] = useState<Required<TestCaseDraftSelectedInputs>>({
     includePositivePath: true,
     includeNegativePath: true,
@@ -257,6 +284,7 @@ export function App() {
     resetTestCaseReviewState("Generate draft cases before review.");
     resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+    resetReviewExport("Story context changed. Generate a fresh export package after useful data exists.");
     setSelectedKnowledgeSourceIds([]);
     setIncludeLatestExtraction(false);
     setUserConfirmedNote("");
@@ -376,6 +404,7 @@ export function App() {
     resetTestCaseReviewState("Generate draft cases before review.");
     resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+    resetReviewExport("Story detail fetch started. Export after the latest data is ready.");
 
     try {
       const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
@@ -433,6 +462,7 @@ export function App() {
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+      resetReviewExport("Story analysis changed. Generate a fresh export package when ready.");
     } catch (error) {
       setStoryAnalysis(null);
       setStoryAnalysisStatus("error");
@@ -444,6 +474,7 @@ export function App() {
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+      resetReviewExport("Story analysis failed. Export after useful data exists.");
     }
   }
 
@@ -453,6 +484,7 @@ export function App() {
     setReviewStatus("idle");
     setReviewMessage(message);
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+    resetReviewExport("Review state changed. Generate a fresh export package when ready.");
   }
 
   function resetAiAssist(message: string): void {
@@ -511,12 +543,20 @@ export function App() {
     setAutomationMappingResult(null);
     setAutomationMappingStatus("idle");
     setAutomationMappingMessage(message);
+    resetReviewExport("Automation mapping changed. Generate a fresh export package when ready.");
+  }
+
+  function resetReviewExport(message: string): void {
+    setReviewExportResult(null);
+    setReviewExportStatus("idle");
+    setReviewExportMessage(message);
   }
 
   function updateReviewCases(nextReviewCases: ReviewedTestCase[]): void {
     setReviewCases(nextReviewCases);
     resetTestPlansReadiness("Review decisions changed. Validate review decisions before previewing Azure Test Plans readiness.");
     resetAutomationMapping("Review decisions changed. Validate review decisions before mapping automation candidates.");
+    resetReviewExport("Review decisions changed. Generate a fresh export package after validation.");
   }
 
   async function generateDraftCases(): Promise<void> {
@@ -543,6 +583,7 @@ export function App() {
       setReviewMessage("Review generated drafts locally. Nothing is exported or written back.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+      resetReviewExport("Draft cases changed. Generate a fresh export package when ready.");
       setDraftStatus("success");
       setDraftMessage("Draft cases generated. QA review is required before use.");
     } catch (error) {
@@ -550,6 +591,7 @@ export function App() {
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+      resetReviewExport("Draft generation failed. Export after useful data exists.");
       setDraftStatus("error");
       setDraftMessage(error instanceof Error ? error.message : "Draft generation failed.");
     }
@@ -566,6 +608,7 @@ export function App() {
     setReviewMessage("Validating local review decisions...");
     resetTestPlansReadiness("Review validation is running. Preview readiness after validation succeeds.");
     resetAutomationMapping("Review validation is running. Map automation candidates after validation succeeds.");
+    resetReviewExport("Review validation is running. Export after validation succeeds.");
 
     try {
       const session = await normalizeReviewedTestCases(settings.apiBaseUrl, {
@@ -583,12 +626,14 @@ export function App() {
       setReviewMessage("Review decisions validated locally. Nothing was created in Azure Test Plans.");
       resetTestPlansReadiness("Review decisions validated. Preview Azure Test Plans readiness when ready.");
       resetAutomationMapping("Review decisions validated. Map automation candidates when ready.");
+      resetReviewExport("Review decisions validated. Generate export package when ready.");
     } catch (error) {
       setReviewSession(null);
       setReviewStatus("error");
       setReviewMessage(error instanceof Error ? error.message : "Review validation failed.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+      resetReviewExport("Review validation failed. Export after useful data exists.");
     }
   }
 
@@ -611,10 +656,12 @@ export function App() {
       setAutomationMappingResult(result);
       setAutomationMappingStatus("success");
       setAutomationMappingMessage("Automation candidate mapping is ready. Planning only - no automation code created.");
+      resetReviewExport("Automation mapping is ready. Generate export package when ready.");
     } catch (error) {
       setAutomationMappingResult(null);
       setAutomationMappingStatus("error");
       setAutomationMappingMessage(error instanceof Error ? error.message : "Automation candidate mapping failed.");
+      resetReviewExport("Automation mapping failed. Generate export package after useful data exists.");
     }
   }
 
@@ -646,6 +693,7 @@ export function App() {
       setSelectedTestPlansCandidateIds([]);
       setTestPlansCreationConfirmed(false);
       resetTestPlansCreation("Select readiness candidates and confirm before creating in Azure Test Plans.");
+      resetReviewExport("Readiness preview changed. Generate a fresh export package when ready.");
     } catch (error) {
       setTestPlansReadiness(null);
       setTestPlansReadinessStatus("error");
@@ -653,6 +701,7 @@ export function App() {
       setSelectedTestPlansCandidateIds([]);
       setTestPlansCreationConfirmed(false);
       resetTestPlansCreation("Preview readiness before creating in Azure Test Plans.");
+      resetReviewExport("Readiness preview failed. Generate export package after useful data exists.");
     }
   }
 
@@ -660,6 +709,7 @@ export function App() {
     setSelectedTestPlansCandidateIds(candidateIds);
     setTestPlansCreationConfirmed(false);
     resetTestPlansCreation("Candidate selection changed. Confirm again before creating selected test cases.");
+    resetReviewExport("Test Plans candidate selection changed. Generate a fresh export package when ready.");
   }
 
   async function createSelectedAzureTestPlansCases(): Promise<void> {
@@ -699,12 +749,67 @@ export function App() {
       setTestPlansCreationStatus("success");
       setTestPlansCreationConfirmed(false);
       setTestPlansCreationMessage("Azure Test Plans creation completed for the explicit selection. Review created, failed, and skipped items.");
+      resetReviewExport("Creation result changed. Generate a fresh export package when ready.");
     } catch (error) {
       setTestPlansCreationResult(null);
       setTestPlansCreationStatus("error");
       setTestPlansCreationConfirmed(false);
       setTestPlansCreationMessage(error instanceof Error ? error.message : "Azure Test Plans creation failed.");
+      resetReviewExport("Creation failed. Generate export package after useful data exists.");
     }
+  }
+
+  async function generateReviewExportPackage(): Promise<void> {
+    if (!hasExportableStoryData({
+      workItemDetail,
+      storyAnalysis,
+      aiAssistResult,
+      draftResult,
+      reviewSession,
+      testPlansReadiness,
+      testPlansCreationResult,
+      automationMappingResult
+    })) {
+      setReviewExportStatus("error");
+      setReviewExportMessage("Fetch or generate useful Story data before exporting a review package.");
+      return;
+    }
+
+    setReviewExportStatus("loading");
+    setReviewExportMessage("Packaging current QA Assist session output. Nothing will be written externally.");
+
+    try {
+      const result = await exportReviewPackage(settings.apiBaseUrl, {
+        format: reviewExportFormat,
+        selectedSections: reviewExportSections,
+        workItemDetail: workItemDetail ?? undefined,
+        storyAnalysis: storyAnalysis ?? undefined,
+        aiAssistResult: aiAssistResult ?? undefined,
+        draftResult: draftResult ?? undefined,
+        reviewSession: reviewSession ?? undefined,
+        readinessResult: testPlansReadiness ?? undefined,
+        creationResult: testPlansCreationResult ?? undefined,
+        automationMappingResult: automationMappingResult ?? undefined
+      });
+
+      setReviewExportResult(result);
+      setReviewExportStatus("success");
+      setReviewExportMessage("Review package generated locally. Copy or download it when ready.");
+    } catch (error) {
+      setReviewExportResult(null);
+      setReviewExportStatus("error");
+      setReviewExportMessage(error instanceof Error ? error.message : "Export package generation failed.");
+    }
+  }
+
+  function updateReviewExportFormat(format: ReviewExportFormat): void {
+    setReviewExportFormat(format);
+    resetReviewExport("Export format changed. Generate a fresh review package.");
+  }
+
+  function updateReviewExportSections(sections: ReviewExportSection[]): void {
+    setReviewExportSections(sections);
+    resetReviewExport("Export sections changed. Generate a fresh review package.");
   }
 
   return (
@@ -768,6 +873,13 @@ export function App() {
           automationMappingResult,
           automationMappingOptions,
           setAutomationMappingOptions,
+          reviewExportStatus,
+          reviewExportMessage,
+          reviewExportResult,
+          reviewExportFormat,
+          setReviewExportFormat: updateReviewExportFormat,
+          reviewExportSections,
+          setReviewExportSections: updateReviewExportSections,
           draftInputs,
           setDraftInputs,
           selectedKnowledgeSourceIds,
@@ -788,6 +900,7 @@ export function App() {
           onTestPlansCreationConfirmedChange: setTestPlansCreationConfirmed,
           onCreateSelectedTestPlansCases: createSelectedAzureTestPlansCases,
           onMapAutomationCandidates: mapReviewedAutomationCandidates,
+          onGenerateReviewExport: generateReviewExportPackage,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -851,6 +964,13 @@ function renderPanel(props: {
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
+  reviewExportStatus: ReviewExportStatus;
+  reviewExportMessage: string;
+  reviewExportResult: ReviewExportResult | null;
+  reviewExportFormat: ReviewExportFormat;
+  setReviewExportFormat: (format: ReviewExportFormat) => void;
+  reviewExportSections: ReviewExportSection[];
+  setReviewExportSections: (sections: ReviewExportSection[]) => void;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -871,6 +991,7 @@ function renderPanel(props: {
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onGenerateReviewExport: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -926,6 +1047,13 @@ function renderPanel(props: {
           automationMappingResult={props.automationMappingResult}
           automationMappingOptions={props.automationMappingOptions}
           setAutomationMappingOptions={props.setAutomationMappingOptions}
+          reviewExportStatus={props.reviewExportStatus}
+          reviewExportMessage={props.reviewExportMessage}
+          reviewExportResult={props.reviewExportResult}
+          reviewExportFormat={props.reviewExportFormat}
+          setReviewExportFormat={props.setReviewExportFormat}
+          reviewExportSections={props.reviewExportSections}
+          setReviewExportSections={props.setReviewExportSections}
           draftInputs={props.draftInputs}
           setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
@@ -945,6 +1073,7 @@ function renderPanel(props: {
           onTestPlansCreationConfirmedChange={props.onTestPlansCreationConfirmedChange}
           onCreateSelectedTestPlansCases={props.onCreateSelectedTestPlansCases}
           onMapAutomationCandidates={props.onMapAutomationCandidates}
+          onGenerateReviewExport={props.onGenerateReviewExport}
         />
       );
     case "run":
@@ -1080,6 +1209,13 @@ function StoryPanel({
   automationMappingResult,
   automationMappingOptions,
   setAutomationMappingOptions,
+  reviewExportStatus,
+  reviewExportMessage,
+  reviewExportResult,
+  reviewExportFormat,
+  setReviewExportFormat,
+  reviewExportSections,
+  setReviewExportSections,
   draftInputs,
   setDraftInputs,
   selectedKnowledgeSourceIds,
@@ -1098,7 +1234,8 @@ function StoryPanel({
   onSelectedTestPlansCandidateIdsChange,
   onTestPlansCreationConfirmedChange,
   onCreateSelectedTestPlansCases,
-  onMapAutomationCandidates
+  onMapAutomationCandidates,
+  onGenerateReviewExport
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -1134,6 +1271,13 @@ function StoryPanel({
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
+  reviewExportStatus: ReviewExportStatus;
+  reviewExportMessage: string;
+  reviewExportResult: ReviewExportResult | null;
+  reviewExportFormat: ReviewExportFormat;
+  setReviewExportFormat: (format: ReviewExportFormat) => void;
+  reviewExportSections: ReviewExportSection[];
+  setReviewExportSections: (sections: ReviewExportSection[]) => void;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -1153,6 +1297,7 @@ function StoryPanel({
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onGenerateReviewExport: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -1244,8 +1389,28 @@ function StoryPanel({
             onPreviewTestPlansReadiness={onPreviewTestPlansReadiness}
             onSelectedTestPlansCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
             onTestPlansCreationConfirmedChange={onTestPlansCreationConfirmedChange}
-            onCreateSelectedTestPlansCases={onCreateSelectedTestPlansCases}
-            onMapAutomationCandidates={onMapAutomationCandidates}
+          onCreateSelectedTestPlansCases={onCreateSelectedTestPlansCases}
+          onMapAutomationCandidates={onMapAutomationCandidates}
+          />
+          <ReviewExportCard
+            status={reviewExportStatus}
+            message={reviewExportMessage}
+            result={reviewExportResult}
+            format={reviewExportFormat}
+            selectedSections={reviewExportSections}
+            onFormatChange={setReviewExportFormat}
+            onSelectedSectionsChange={setReviewExportSections}
+            canExport={hasExportableStoryData({
+              workItemDetail: detail,
+              storyAnalysis: analysis,
+              aiAssistResult,
+              draftResult,
+              reviewSession,
+              testPlansReadiness,
+              testPlansCreationResult,
+              automationMappingResult
+            })}
+            onGenerate={onGenerateReviewExport}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -2108,6 +2273,112 @@ function AutomationCandidateResult({ result }: { result: AutomationCandidateMapp
   );
 }
 
+function ReviewExportCard({
+  status,
+  message,
+  result,
+  format,
+  selectedSections,
+  onFormatChange,
+  onSelectedSectionsChange,
+  canExport,
+  onGenerate
+}: {
+  status: ReviewExportStatus;
+  message: string;
+  result: ReviewExportResult | null;
+  format: ReviewExportFormat;
+  selectedSections: ReviewExportSection[];
+  onFormatChange: (format: ReviewExportFormat) => void;
+  onSelectedSectionsChange: (sections: ReviewExportSection[]) => void;
+  canExport: boolean;
+  onGenerate: () => void;
+}) {
+  function toggleSection(section: ReviewExportSection): void {
+    onSelectedSectionsChange(
+      selectedSections.includes(section)
+        ? selectedSections.filter((item) => item !== section)
+        : [...selectedSections, section]
+    );
+  }
+
+  async function copyExportContent(): Promise<void> {
+    if (!result) return;
+    await navigator.clipboard.writeText(result.artifact.content);
+  }
+
+  function downloadExportContent(): void {
+    if (!result) return;
+    const blob = new Blob([result.artifact.content], { type: result.artifact.mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = result.artifact.fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <article className="info-card export-card">
+      <div className="card-row">
+        <h3>Export review package</h3>
+        <span className={result ? "status-pill success" : "status-pill"}>{result ? "Generated" : "Export only"}</span>
+      </div>
+      <p>Export only - nothing will be written to external systems.</p>
+      <div className="choice-list compact">
+        <label className="choice-row compact">
+          <input type="radio" checked={format === "markdown"} onChange={() => onFormatChange("markdown")} />
+          <span><strong>Markdown</strong></span>
+        </label>
+        <label className="choice-row compact">
+          <input type="radio" checked={format === "json"} onChange={() => onFormatChange("json")} />
+          <span><strong>JSON</strong></span>
+        </label>
+      </div>
+      <div className="choice-list compact">
+        {REVIEW_EXPORT_SECTION_OPTIONS.map((section) => (
+          <DraftOption
+            key={section.value}
+            label={section.label}
+            checked={selectedSections.includes(section.value)}
+            onChange={() => toggleSection(section.value)}
+          />
+        ))}
+      </div>
+      <InfoGrid
+        items={[
+          ["Selected sections", String(selectedSections.length)],
+          ["Format", format]
+        ]}
+      />
+      <SecondaryAction
+        label={status === "loading" ? "Generating export package..." : "Generate export package"}
+        disabled={status === "loading" || !canExport || selectedSections.length === 0}
+        onClick={onGenerate}
+      />
+      <InfoCard title="Export status" body={message} tone={status === "error" ? "warning" : "neutral"} />
+      {result ? (
+        <div className="export-result">
+          <InfoGrid
+            items={[
+              ["File", result.artifact.fileName],
+              ["Included sections", String(result.summary.includedSections.length)],
+              ["Warnings", String(result.summary.warnings.length)]
+            ]}
+          />
+          <AnalysisList title="Export warnings" items={result.summary.warnings} />
+          <div className="review-actions">
+            <button type="button" onClick={copyExportContent}>Copy</button>
+            <button type="button" onClick={downloadExportContent}>Download</button>
+          </div>
+          <pre className="preview-text">{truncateLongText(result.artifact.content, 1600)}</pre>
+          <p className="trust-note">{result.disclaimer}</p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function TestCaseReviewEditor({
   draftCase,
   reviewCase,
@@ -2317,6 +2588,28 @@ function StoryPlaceholderCards() {
         ["Test scope draft", "Not generated yet. Final test scope and cases require user confirmation."]
       ]}
     />
+  );
+}
+
+function hasExportableStoryData(input: {
+  workItemDetail: WorkItemDetail | null;
+  storyAnalysis: StoryRequirementAnalysis | null;
+  aiAssistResult: StoryAnalysisAssistResult | null;
+  draftResult: TestCaseDraftGenerationResult | null;
+  reviewSession: TestCaseReviewSession | null;
+  testPlansReadiness: TestPlansReadinessResult | null;
+  testPlansCreationResult: TestPlansCreationResult | null;
+  automationMappingResult: AutomationCandidateMappingResult | null;
+}): boolean {
+  return Boolean(
+    input.workItemDetail
+    || input.storyAnalysis
+    || input.aiAssistResult
+    || input.draftResult
+    || input.reviewSession
+    || input.testPlansReadiness
+    || input.testPlansCreationResult
+    || input.automationMappingResult
   );
 }
 

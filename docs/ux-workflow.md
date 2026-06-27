@@ -41,6 +41,8 @@ Step 0023 adds optional backend-mediated AI assist as a separate suggestion laye
 
 Step 0024 adds automation candidate mapping after review validation. The Story tab can map reviewed cases into planning-only UI, API, mixed, or manual-only candidates with readiness, reasons, blockers, and a recommended starting point. It must not show code generation, repository write, or CI/CD actions.
 
+Step 0025 adds export/package review output. The Story tab can package selected current-session sections as Markdown or JSON, then let the user copy or download the artifact locally. Export is portable handoff output only; it must not write to Azure DevOps, Azure Test Plans, repositories, databases, or LLM providers.
+
 ## Setup Flow
 
 Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.

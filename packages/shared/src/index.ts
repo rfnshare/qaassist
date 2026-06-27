@@ -8,6 +8,7 @@ export * from "./boards/boardSummary.js";
 export * from "./boards/workQueue.js";
 export * from "./common/sourceProvider.js";
 export * from "./common/timestamps.js";
+export * from "./export/reviewExport.js";
 export * from "./knowledge/boardKnowledge.js";
 export * from "./knowledge/knowledgeExtraction.js";
 export * from "./qa/qaAnalysisResult.js";

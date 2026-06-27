@@ -29,6 +29,8 @@ import type {
   TestCaseDraftGenerationResult,
   TestCaseReviewNormalizationRequest,
   TestCaseReviewNormalizationResult,
+  TeamAnalyticsRequest,
+  TeamAnalyticsResult,
   TestPlansCreationRequest,
   TestPlansCreationResult,
   TestPlansReadinessRequest,
@@ -138,6 +140,13 @@ export async function previewAutomationScaffold(
   input: AutomationScaffoldRequest
 ): Promise<AutomationScaffoldResult> {
   return postJson(apiBaseUrl, "/automation/scaffold/preview", input);
+}
+
+export async function generateTeamAnalytics(
+  apiBaseUrl: string,
+  input: TeamAnalyticsRequest
+): Promise<TeamAnalyticsResult> {
+  return postJson(apiBaseUrl, "/reporting/team-analytics", input);
 }
 
 export async function exportReviewPackage(

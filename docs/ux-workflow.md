@@ -49,6 +49,8 @@ Step 0027 expands optional backend-mediated AI refinement across deterministic o
 
 Step 0028 adds an automation scaffold preview after automation mapping. The user selects candidates manually, chooses whether selector notes, test data notes, or API client shape should be included, and previews likely files/dependencies/gaps. No candidate is selected by default, no files are created, no repositories are written, and no CI/CD configuration is generated.
 
+Step 0029 adds read-only team analytics to Today. Analytics summarize only current QA Assist session inputs, including board preview, reviewed cases, Test Plans readiness/creation outcomes, automation mapping/scaffold previews, exports, and write-back helper previews. Missing data is warned or skipped, never guessed, and no external systems are updated.
+
 ## Setup Flow
 
 Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.

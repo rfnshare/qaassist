@@ -12,6 +12,7 @@ import { registerBriefingRoutes } from "./routes/briefings.routes.js";
 import { registerExportRoutes } from "./routes/export.routes.js";
 import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerKnowledgeRoutes } from "./routes/knowledge.routes.js";
+import { registerReportingRoutes } from "./routes/reporting.routes.js";
 import { registerTestCaseDraftRoutes } from "./routes/testCaseDraft.routes.js";
 import { registerTestCaseReviewRoutes } from "./routes/testCaseReview.routes.js";
 import { registerTestPlansCreationRoutes } from "./routes/testPlansCreation.routes.js";
@@ -40,6 +41,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerBriefingRoutes(app);
   await registerExportRoutes(app);
   await registerKnowledgeRoutes(app);
+  await registerReportingRoutes(app);
   await registerTestCaseDraftRoutes(app);
   await registerTestCaseReviewRoutes(app);
   await registerTestPlansReadinessRoutes(app);

@@ -30,10 +30,7 @@
 - 0026 Story/bug write-back helpers.
 - 0027 Broader AI-assisted refinement rollout.
 - 0028 Optional automation generation scaffold.
-
-## 0029 Team Reporting/Analytics
-
-Summarize team-level QA activity only after privacy, scope, and persistence rules are explicitly designed.
+- 0029 Team reporting/analytics.
 
 ## 0030 Explicit Azure DevOps Write-Back Submission Flow
 
@@ -46,6 +43,10 @@ Explore board-level patterns across stories only after privacy, evidence scope, 
 ## 0032 Optional Repo Export/Apply Flow
 
 Design an explicit, reviewable way to export or apply generated automation artifacts only after file, repo, and approval boundaries are defined.
+
+## 0033 Historical Reporting Foundation
+
+Design persistent reporting only after retention, privacy, consent, and access-control boundaries are explicit.
 
 ## Later Story Workspace Requirement Discussion
 

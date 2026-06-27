@@ -17,6 +17,7 @@ export * from "./qa/qaAnalysisResult.js";
 export * from "./qa/qaEnums.js";
 export * from "./qa/testCase.js";
 export * from "./recommendations/workRecommendation.js";
+export * from "./reporting/teamAnalytics.js";
 export * from "./settings/azureDevOpsSettings.js";
 export * from "./settings/currentQaUser.js";
 export * from "./test-cases/testCaseDraft.js";

@@ -32,6 +32,7 @@ docs/prompts/0025-export-package-review-output.md
 docs/prompts/0026-story-bug-writeback-helpers.md
 docs/prompts/0027-ai-assisted-refinement-rollout.md
 docs/prompts/0028-automation-generation-scaffold.md
+docs/prompts/0029-team-reporting-analytics.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -66,3 +67,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0026-story-bug-writeback-helpers`: preview-only bug, comment, state transition, and attachment metadata helpers with warnings and required confirmations without Azure DevOps writes, LLM calls, secret handling, or persistence.
 - `0027-ai-assisted-refinement-rollout`: optional backend-only AI refinement across Story analysis, draft cases, automation mapping, and write-back helper previews without deterministic replacement, auto-apply, external writes, extension secrets, or persistence.
 - `0028-automation-generation-scaffold`: deterministic automation scaffold preview for selected automation candidates with likely files, dependencies, gaps, and warnings without framework generation, repo writes, CI/CD, LLM calls, or persistence.
+- `0029-team-reporting-analytics`: read-only current-session team analytics from provided QA Assist artifacts with compact metrics, sections, warnings, and story summaries without external writes, secrets, LLM calls, or historical persistence.

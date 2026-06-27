@@ -26,6 +26,8 @@ import type {
   StoryLinkedKnowledgeEvidence,
   StoryAnalysisAssistResult,
   StoryRequirementAnalysis,
+  TeamAnalyticsRequest,
+  TeamAnalyticsResult,
   TestCaseDraftGenerationResult,
   TestCaseDraftSelectedInputs,
   ReviewedTestCase,
@@ -49,6 +51,7 @@ import {
   fetchBoardSummaryPreview,
   fetchWorkItemDetail,
   fetchLlmProviderStatus,
+  generateTeamAnalytics,
   generateBoardBriefing,
   generateTestCaseDrafts,
   listAzureTeams,
@@ -72,6 +75,7 @@ type ThemePreference = "system" | "light" | "dark";
 type ResolvedTheme = "light" | "dark";
 type FetchStatus = "idle" | "loading" | "success" | "error";
 type BriefingStatus = "idle" | "loading" | "success" | "error";
+type TeamAnalyticsStatus = "idle" | "loading" | "success" | "error";
 type StoryDetailStatus = "idle" | "loading" | "success" | "error";
 type StoryAnalysisStatus = "idle" | "loading" | "success" | "error";
 type AiAssistStatus = "idle" | "loading" | "success" | "error";
@@ -178,6 +182,9 @@ export function App() {
   const [briefingStatus, setBriefingStatus] = useState<BriefingStatus>("idle");
   const [briefingMessage, setBriefingMessage] = useState<string>("Fetch board condition first to generate an evidence-bound briefing.");
   const [briefing, setBriefing] = useState<BoardBriefing | null>(null);
+  const [teamAnalyticsStatus, setTeamAnalyticsStatus] = useState<TeamAnalyticsStatus>("idle");
+  const [teamAnalyticsMessage, setTeamAnalyticsMessage] = useState("Generate analytics after board or Story session data exists.");
+  const [teamAnalytics, setTeamAnalytics] = useState<TeamAnalyticsResult | null>(null);
   const [storyDetailStatus, setStoryDetailStatus] = useState<StoryDetailStatus>("idle");
   const [storyDetailMessage, setStoryDetailMessage] = useState<string>("Open an Azure DevOps work item and fetch details.");
   const [workItemDetail, setWorkItemDetail] = useState<WorkItemDetail | null>(null);
@@ -331,6 +338,7 @@ export function App() {
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
     resetReviewExport("Story context changed. Generate a fresh export package after useful data exists.");
     resetWritebackPreview("Story context changed. Preview helper again when ready.");
+    resetTeamAnalytics("Story context changed. Generate fresh read-only analytics when ready.");
     setSelectedKnowledgeSourceIds([]);
     setIncludeLatestExtraction(false);
     setUserConfirmedNote("");
@@ -396,6 +404,7 @@ export function App() {
       setBriefing(null);
       setBriefingStatus("idle");
       setBriefingMessage("Board condition fetched. Generate an evidence-bound QA briefing when ready.");
+      resetTeamAnalytics("Board condition changed. Generate fresh read-only analytics when ready.");
       setFetchStatus("success");
       setFetchMessage("Fetched live Azure DevOps board condition.");
     } catch (error) {
@@ -425,9 +434,47 @@ export function App() {
       setBriefing(payload);
       setBriefingStatus("success");
       setBriefingMessage("Generated evidence-bound preview briefing.");
+      resetTeamAnalytics("Board briefing changed. Generate fresh read-only analytics when ready.");
     } catch (error) {
       setBriefingStatus("error");
       setBriefingMessage(error instanceof Error ? error.message : "Briefing generation failed.");
+    }
+  }
+
+  async function generateCurrentTeamAnalytics(): Promise<void> {
+    const input = buildTeamAnalyticsRequest({
+      settings,
+      preview,
+      briefing,
+      workItemDetail,
+      storyAnalysis,
+      reviewSession,
+      testPlansReadiness,
+      testPlansCreationResult,
+      automationMappingResult,
+      automationScaffoldResult,
+      reviewExportResult,
+      writebackPreviewResult
+    });
+
+    if (!hasMeaningfulAnalyticsInput(input)) {
+      setTeamAnalyticsStatus("error");
+      setTeamAnalyticsMessage("Fetch board condition or generate Story session output before analytics.");
+      return;
+    }
+
+    setTeamAnalyticsStatus("loading");
+    setTeamAnalyticsMessage("Generating read-only team analytics from current session inputs...");
+
+    try {
+      const result = await generateTeamAnalytics(settings.apiBaseUrl, input);
+      setTeamAnalytics(result);
+      setTeamAnalyticsStatus("success");
+      setTeamAnalyticsMessage("Read-only analytics generated from current QA Assist session inputs.");
+    } catch (error) {
+      setTeamAnalytics(null);
+      setTeamAnalyticsStatus("error");
+      setTeamAnalyticsMessage(error instanceof Error ? error.message : "Team analytics generation failed.");
     }
   }
 
@@ -502,6 +549,7 @@ export function App() {
       setStoryAnalysis(analysis);
       setStoryAnalysisStatus("success");
       setStoryAnalysisMessage("Evidence-bound preview analysis is ready.");
+      resetTeamAnalytics("Story analysis changed. Generate fresh read-only analytics when ready.");
       resetAiAssist("Deterministic analysis is ready. Request AI assist only if the backend provider is available.");
       setDraftResult(null);
       setDraftStatus("idle");
@@ -561,6 +609,12 @@ export function App() {
     setWritebackRefinementResult(null);
     setWritebackRefinementStatus("idle");
     setWritebackRefinementMessage(message);
+  }
+
+  function resetTeamAnalytics(message: string): void {
+    setTeamAnalytics(null);
+    setTeamAnalyticsStatus("idle");
+    setTeamAnalyticsMessage(message);
   }
 
   async function requestAiAssist(): Promise<void> {
@@ -815,6 +869,7 @@ export function App() {
       setReviewCases(session.reviewedCases);
       setReviewStatus("success");
       setReviewMessage("Review decisions validated locally. Nothing was created in Azure Test Plans.");
+      resetTeamAnalytics("Review session changed. Generate fresh read-only analytics when ready.");
       resetTestPlansReadiness("Review decisions validated. Preview Azure Test Plans readiness when ready.");
       resetAutomationMapping("Review decisions validated. Map automation candidates when ready.");
       resetReviewExport("Review decisions validated. Generate export package when ready.");
@@ -849,6 +904,7 @@ export function App() {
       setAutomationMappingResult(result);
       setAutomationMappingStatus("success");
       setAutomationMappingMessage("Automation candidate mapping is ready. Planning only - no automation code created.");
+      resetTeamAnalytics("Automation mapping changed. Generate fresh read-only analytics when ready.");
       resetAutomationScaffold("Automation mapping is ready. Select candidates to preview a scaffold.");
       resetReviewExport("Automation mapping is ready. Generate export package when ready.");
       resetWritebackPreview("Automation mapping changed. Preview helper again when ready.");
@@ -887,6 +943,7 @@ export function App() {
       setAutomationScaffoldResult(result);
       setAutomationScaffoldStatus("success");
       setAutomationScaffoldMessage("Automation scaffold preview generated. No code or repository changes were created.");
+      resetTeamAnalytics("Automation scaffold preview changed. Generate fresh read-only analytics when ready.");
       resetReviewExport("Automation scaffold preview changed. Generate a fresh export package when ready.");
     } catch (error) {
       setAutomationScaffoldResult(null);
@@ -934,6 +991,7 @@ export function App() {
       setTestPlansReadiness(result);
       setTestPlansReadinessStatus("success");
       setTestPlansReadinessMessage("Readiness preview generated. Nothing was created or updated in Azure Test Plans.");
+      resetTeamAnalytics("Test Plans readiness changed. Generate fresh read-only analytics when ready.");
       setSelectedTestPlansCandidateIds([]);
       setTestPlansCreationConfirmed(false);
       resetTestPlansCreation("Select readiness candidates and confirm before creating in Azure Test Plans.");
@@ -996,6 +1054,7 @@ export function App() {
       setTestPlansCreationStatus("success");
       setTestPlansCreationConfirmed(false);
       setTestPlansCreationMessage("Azure Test Plans creation completed for the explicit selection. Review created, failed, and skipped items.");
+      resetTeamAnalytics("Azure Test Plans creation result changed. Generate fresh read-only analytics when ready.");
       resetReviewExport("Creation result changed. Generate a fresh export package when ready.");
       resetWritebackPreview("Creation result changed. Preview helper again when ready.");
     } catch (error) {
@@ -1044,6 +1103,7 @@ export function App() {
       setReviewExportResult(result);
       setReviewExportStatus("success");
       setReviewExportMessage("Review package generated locally. Copy or download it when ready.");
+      resetTeamAnalytics("Export package changed. Generate fresh read-only analytics when ready.");
     } catch (error) {
       setReviewExportResult(null);
       setReviewExportStatus("error");
@@ -1099,6 +1159,7 @@ export function App() {
       setWritebackPreviewResult(result);
       setWritebackPreviewStatus("success");
       setWritebackPreviewMessage("Write-back helper preview generated. Final submission is not implemented in this step.");
+      resetTeamAnalytics("Write-back helper preview changed. Generate fresh read-only analytics when ready.");
     } catch (error) {
       setWritebackPreviewResult(null);
       setWritebackPreviewStatus("error");
@@ -1155,6 +1216,23 @@ export function App() {
           briefing,
           briefingStatus,
           briefingMessage,
+          teamAnalytics,
+          teamAnalyticsStatus,
+          teamAnalyticsMessage,
+          canGenerateTeamAnalytics: hasMeaningfulAnalyticsInput(buildTeamAnalyticsRequest({
+            settings,
+            preview,
+            briefing,
+            workItemDetail,
+            storyAnalysis,
+            reviewSession,
+            testPlansReadiness,
+            testPlansCreationResult,
+            automationMappingResult,
+            automationScaffoldResult,
+            reviewExportResult,
+            writebackPreviewResult
+          })),
           setupStatus,
           setupMessage,
           setSetupStatus,
@@ -1165,6 +1243,7 @@ export function App() {
           setTeamOptions,
           onFetchBoardSummary: fetchBoardSummary,
           onGenerateQaBriefing: generateQaBriefing,
+          onGenerateTeamAnalytics: generateCurrentTeamAnalytics,
           storyDetailStatus,
           storyDetailMessage,
           workItemDetail,
@@ -1282,6 +1361,10 @@ function renderPanel(props: {
   briefing: BoardBriefing | null;
   briefingStatus: BriefingStatus;
   briefingMessage: string;
+  teamAnalytics: TeamAnalyticsResult | null;
+  teamAnalyticsStatus: TeamAnalyticsStatus;
+  teamAnalyticsMessage: string;
+  canGenerateTeamAnalytics: boolean;
   setupStatus: SetupStatus;
   setupMessage: string;
   setSetupStatus: (status: SetupStatus) => void;
@@ -1292,6 +1375,7 @@ function renderPanel(props: {
   setTeamOptions: (teams: AzureDevOpsTeamOption[]) => void;
   onFetchBoardSummary: () => void;
   onGenerateQaBriefing: () => void;
+  onGenerateTeamAnalytics: () => void;
   storyDetailStatus: StoryDetailStatus;
   storyDetailMessage: string;
   workItemDetail: WorkItemDetail | null;
@@ -1401,8 +1485,13 @@ function renderPanel(props: {
           briefing={props.briefing}
           briefingStatus={props.briefingStatus}
           briefingMessage={props.briefingMessage}
+          teamAnalytics={props.teamAnalytics}
+          teamAnalyticsStatus={props.teamAnalyticsStatus}
+          teamAnalyticsMessage={props.teamAnalyticsMessage}
+          canGenerateTeamAnalytics={props.canGenerateTeamAnalytics}
           onFetchBoardSummary={props.onFetchBoardSummary}
           onGenerateQaBriefing={props.onGenerateQaBriefing}
+          onGenerateTeamAnalytics={props.onGenerateTeamAnalytics}
           onOpenSettings={props.onOpenSettings}
         />
       );
@@ -1541,8 +1630,13 @@ function TodayPanel({
   briefing,
   briefingStatus,
   briefingMessage,
+  teamAnalytics,
+  teamAnalyticsStatus,
+  teamAnalyticsMessage,
+  canGenerateTeamAnalytics,
   onFetchBoardSummary,
   onGenerateQaBriefing,
+  onGenerateTeamAnalytics,
   onOpenSettings
 }: {
   settings: ExtensionSettings;
@@ -1552,8 +1646,13 @@ function TodayPanel({
   briefing: BoardBriefing | null;
   briefingStatus: BriefingStatus;
   briefingMessage: string;
+  teamAnalytics: TeamAnalyticsResult | null;
+  teamAnalyticsStatus: TeamAnalyticsStatus;
+  teamAnalyticsMessage: string;
+  canGenerateTeamAnalytics: boolean;
   onFetchBoardSummary: () => void;
   onGenerateQaBriefing: () => void;
+  onGenerateTeamAnalytics: () => void;
   onOpenSettings: () => void;
 }) {
   const selectedTeamReady = hasSelectedTeamBoard(settings);
@@ -1576,6 +1675,13 @@ function TodayPanel({
         message={briefingMessage}
         canGenerate={selectedTeamReady && Boolean(preview)}
         onGenerate={onGenerateQaBriefing}
+      />
+      <TeamAnalyticsCard
+        analytics={teamAnalytics}
+        status={teamAnalyticsStatus}
+        message={teamAnalyticsMessage}
+        canGenerate={canGenerateTeamAnalytics}
+        onGenerate={onGenerateTeamAnalytics}
       />
       {selectedTeamReady ? (
         <InfoCard title="Fetch status" body={fetchMessage} tone={fetchStatus === "error" ? "warning" : "neutral"} />
@@ -4392,6 +4498,71 @@ function BriefingCard({
   );
 }
 
+function TeamAnalyticsCard({
+  analytics,
+  status,
+  message,
+  canGenerate,
+  onGenerate
+}: {
+  analytics: TeamAnalyticsResult | null;
+  status: TeamAnalyticsStatus;
+  message: string;
+  canGenerate: boolean;
+  onGenerate: () => void;
+}) {
+  return (
+    <article className="info-card analytics-card">
+      <div className="card-row">
+        <h3>Team analytics</h3>
+        <span className={analytics ? "status-pill success" : "status-pill"}>{analytics ? "Read-only" : "Session scoped"}</span>
+      </div>
+      <p>Read-only analytics - no external systems updated.</p>
+      <p>{message}</p>
+      <SecondaryAction
+        label={status === "loading" ? "Generating analytics..." : "Generate team analytics"}
+        disabled={!canGenerate || status === "loading"}
+        onClick={onGenerate}
+      />
+      {!canGenerate ? (
+        <p className="analysis-empty">Fetch board condition or generate Story session output before analytics.</p>
+      ) : null}
+      {analytics ? <TeamAnalyticsResultView analytics={analytics} /> : null}
+    </article>
+  );
+}
+
+function TeamAnalyticsResultView({ analytics }: { analytics: TeamAnalyticsResult }) {
+  return (
+    <div className="analysis-body">
+      <InfoGrid
+        items={[
+          ["Scope", analytics.scope.label],
+          ["Generated", formatDateTime(analytics.generatedAt)],
+          ["Warnings", String(analytics.warnings.length)]
+        ]}
+      />
+      <InfoGrid items={analytics.metrics.slice(0, 8).map((metric) => [metric.label, `${metric.value}${metric.unit ? ` ${metric.unit}` : ""}`])} />
+      {analytics.sections.map((section) => (
+        <div className="analysis-list" key={section.id}>
+          <span>{section.title}</span>
+          <p>{section.summary}</p>
+          <BriefingList title="Details" items={section.items} />
+        </div>
+      ))}
+      <AnalysisList
+        title="Story summaries"
+        items={analytics.storySummaries.map((story) => {
+          const id = story.workItemId ? `#${story.workItemId}` : "Current story";
+          return `${id} ${story.title ?? "Untitled"} - reviewed ${story.reviewedTotal ?? 0}, approved ${story.approvedForExport ?? 0}, blocked ${story.blocked ?? 0}`;
+        })}
+      />
+      <AnalysisList title="Analytics warnings" items={analytics.warnings.map((warning) => `${warning.code}: ${warning.message}`)} />
+      <p className="trust-note">{analytics.disclaimer}</p>
+    </div>
+  );
+}
+
 function BriefingList({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) {
     return null;
@@ -4684,6 +4855,64 @@ function formatSettingsBoardLabel(settings: ExtensionSettings): string {
 
 function formatBoardLabel(board: BoardScope): string {
   return board.displayLabel ?? `${board.organization}/${board.project}/${board.team ?? "Team not selected"}`;
+}
+
+function buildTeamAnalyticsRequest(input: {
+  settings: ExtensionSettings;
+  preview: BoardSummaryPreviewResponse | null;
+  briefing: BoardBriefing | null;
+  workItemDetail: WorkItemDetail | null;
+  storyAnalysis: StoryRequirementAnalysis | null;
+  reviewSession: TestCaseReviewSession | null;
+  testPlansReadiness: TestPlansReadinessResult | null;
+  testPlansCreationResult: TestPlansCreationResult | null;
+  automationMappingResult: AutomationCandidateMappingResult | null;
+  automationScaffoldResult: AutomationScaffoldResult | null;
+  reviewExportResult: ReviewExportResult | null;
+  writebackPreviewResult: WritebackPreviewResult | null;
+}): TeamAnalyticsRequest {
+  const scope = hasSelectedTeamBoard(input.settings)
+    ? {
+        selectedBoard: buildBoardScope(input.settings),
+        label: formatSettingsBoardLabel(input.settings),
+        scopeType: "selected-board" as const
+      }
+    : {
+        label: "Current QA Assist session",
+        scopeType: "current-session" as const
+      };
+
+  return {
+    scope,
+    boardSummary: input.preview?.boardSummary,
+    briefing: input.briefing ?? undefined,
+    workItemDetail: input.workItemDetail ?? undefined,
+    storyAnalysis: input.storyAnalysis ?? undefined,
+    reviewSession: input.reviewSession ?? undefined,
+    readinessResult: input.testPlansReadiness ?? undefined,
+    creationResult: input.testPlansCreationResult ?? undefined,
+    automationMappingResult: input.automationMappingResult ?? undefined,
+    automationScaffoldResult: input.automationScaffoldResult ?? undefined,
+    exportResult: input.reviewExportResult ?? undefined,
+    writebackPreviewResult: input.writebackPreviewResult ?? undefined
+  };
+}
+
+function hasMeaningfulAnalyticsInput(input: TeamAnalyticsRequest): boolean {
+  return Boolean(
+    input.boardSummary
+    || input.briefing
+    || input.workItemDetail
+    || input.storyAnalysis
+    || input.reviewSession
+    || input.readinessResult
+    || input.creationResult
+    || input.automationMappingResult
+    || input.automationScaffoldResult
+    || input.exportResult
+    || input.writebackPreviewResult
+    || input.storySummaries?.length
+  );
 }
 
 function normalizeOptional(value: string): string | undefined {

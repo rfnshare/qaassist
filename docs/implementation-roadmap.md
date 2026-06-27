@@ -20,32 +20,24 @@
 - 0016 Board knowledge and requirement upload foundation.
 - 0017 Safe text extraction preview for board knowledge.
 - 0018 Board knowledge evidence linking to Story analysis.
-
-## 0019 Deterministic Test Case Draft Generation From Confirmed Evidence
-
-Implemented for review in Step 0019.
-
-Generate reviewable deterministic test case drafts from fetched work item and Story analysis evidence. Drafts include evidence links, warnings, uncertainty labels, and no Azure Test Plans write-back.
-
-## 0020 Optional Backend LLM Provider Adapter
-
-Add optional backend-mediated LLM provider abstraction for approved AI workflows. The extension must not hold AI keys.
+- 0019 Deterministic test case draft generation from confirmed evidence.
+- 0020 Test case review/edit workflow.
 
 ## 0021 Azure Test Plans Draft/Write-Back Approval Flow
 
 Draft Azure Test Plans write-back previews from confirmed test cases and require explicit approval before creation.
 
-## 0022 Test Case Review/Edit Workflow
+## 0022 Optional Backend LLM Provider Adapter
 
-Let QA review, edit, confirm, reject, and organize draft test cases before any downstream write-back.
+Add optional backend-mediated LLM provider abstraction for approved AI workflows. The extension must not hold AI keys.
 
 ## 0023 Automation Candidate Mapping
 
 Map approved test cases to manual, API, UI, or future Playwright automation candidates.
 
-## 0024 State Mapping Save And Board Setup Hardening
+## 0024 Export/Package Review Output
 
-Persist user-approved Azure DevOps state mappings, improve board/team selection, and harden setup validation.
+Package reviewed local/session output for copy/export review without silent write-back.
 
 ## 0023 Story Workspace Requirement Discussion
 

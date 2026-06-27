@@ -693,7 +693,11 @@ button {
 .draft-card,
 .draft-result,
 .draft-list,
-.draft-case {
+.draft-case,
+.review-panel,
+.review-case,
+.review-step-list,
+.review-step {
   display: grid;
   gap: 10px;
 }
@@ -714,6 +718,42 @@ button {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.review-panel {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.review-panel h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.review-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.review-actions button {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.review-step-list > span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .briefing-list ol {

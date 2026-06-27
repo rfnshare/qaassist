@@ -39,11 +39,11 @@ Browser Extension
 
 ## Current Status
 
-Step 0019 deterministic test case draft generation is implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0020 test case review/edit workflow is implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
 Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Settings starts with an Azure DevOps Services or TFS URL, checks the connection through the backend, discovers Azure DevOps Services projects and team boards, and keeps manual setup under advanced local preview. Settings now includes a metadata-only Board Knowledge shell scoped to the selected team board. Today can request a read-only board condition preview and then generate an evidence-bound deterministic QA briefing from that returned board data. Story can request read-only Azure work item detail through the backend and generate a deterministic evidence-bound requirement/gap analysis from the fetched detail.
 
-The Azure DevOps PAT remains a local development backend-only fallback and is never requested by the extension. The product direction is seamless Azure/Microsoft auth later through Microsoft Entra/OAuth. The current board briefing, Story requirement analysis, and test case drafts are deterministic preview logic, not LLM calls. Board knowledge supports metadata plus a backend JSON-only extraction preview for manually pasted `.txt` and `.md` text. Story analysis can include only user-selected board knowledge metadata, capped extraction preview evidence, or a short user-confirmed note. Test case drafts are generated from available evidence only and require QA review before use. Board knowledge is not automatically indexed or linked. Azure Test Plans write-back, OAuth, database/storage, comments, bug creation, final approved test cases, and automation generation are intentionally not implemented yet.
+The Azure DevOps PAT remains a local development backend-only fallback and is never requested by the extension. The product direction is seamless Azure/Microsoft auth later through Microsoft Entra/OAuth. The current board briefing, Story requirement analysis, and test case drafts are deterministic preview logic, not LLM calls. Board knowledge supports metadata plus a backend JSON-only extraction preview for manually pasted `.txt` and `.md` text. Story analysis can include only user-selected board knowledge metadata, capped extraction preview evidence, or a short user-confirmed note. Test case drafts are generated from available evidence only and can be reviewed, edited, approved for later export, rejected, or blocked in the Story panel. Review output is local/session-only; approval does not create Azure Test Plans items. Board knowledge is not automatically indexed or linked. Azure Test Plans write-back, OAuth, database/storage, comments, bug creation, final persisted approved test cases, and automation generation are intentionally not implemented yet.
 
 ## Local Development
 
@@ -116,15 +116,17 @@ Test the simplified QA Assist side panel and Azure DevOps page detection locally
 7. Optionally select linked board knowledge evidence in Story, then click `Analyze requirements` and confirm the output is labeled `Evidence-bound preview`.
 8. Confirm evidence coverage, linked evidence, gaps/questions, and likely test areas are clearly non-final and need confirmation.
 9. Generate draft test cases and confirm they are labeled draft-only with evidence links and warnings.
-10. Confirm description, acceptance criteria, and linked extraction previews display as safe text previews, not executable HTML.
-11. In `Settings`, test `System`, `Light`, and `Dark` theme modes.
-11. In `Settings`, enter an Azure DevOps Services or TFS URL and click `Connect`.
-12. Select a discovered project and team board, or use advanced local preview only when discovery cannot run in local development.
-13. In `Settings`, add a Board Knowledge metadata-only source and confirm the file selector captures metadata only.
-14. Paste `.txt` or `.md` text into Extraction preview and confirm the backend returns status, evidence, warnings, and preview text without storing or indexing it.
-15. In `Today`, click `Fetch board condition`.
-16. Click `Generate QA briefing` after the board condition fetch succeeds.
-17. Confirm real counts, story details, analysis, board knowledge metadata, extraction preview, and briefing claims only appear after successful backend calls. If backend PAT is missing, the UI should show `Azure DevOps backend token is not configured. Add it to local .env on the API server.`
+10. Review a generated draft, edit the title/objective/steps/expected result, add a reviewer note, and explicitly approve/reject/block it.
+11. Click `Validate review decisions` and confirm the normalized session says reviewed cases are local/session output only and nothing was created in Azure Test Plans.
+12. Confirm description, acceptance criteria, and linked extraction previews display as safe text previews, not executable HTML.
+13. In `Settings`, test `System`, `Light`, and `Dark` theme modes.
+14. In `Settings`, enter an Azure DevOps Services or TFS URL and click `Connect`.
+15. Select a discovered project and team board, or use advanced local preview only when discovery cannot run in local development.
+16. In `Settings`, add a Board Knowledge metadata-only source and confirm the file selector captures metadata only.
+17. Paste `.txt` or `.md` text into Extraction preview and confirm the backend returns status, evidence, warnings, and preview text without storing or indexing it.
+18. In `Today`, click `Fetch board condition`.
+19. Click `Generate QA briefing` after the board condition fetch succeeds.
+20. Confirm real counts, story details, analysis, board knowledge metadata, extraction preview, draft review decisions, and briefing claims only appear after successful backend calls. If backend PAT is missing, the UI should show `Azure DevOps backend token is not configured. Add it to local .env on the API server.`
 
 Manual Azure preview validation steps are documented in `docs/manual-tests/0010-azure-preview-validation.md`.
 Configuration experience direction is documented in `docs/configuration-experience.md`, and the future AI board briefing direction is documented in `docs/ai-board-briefing.md`.

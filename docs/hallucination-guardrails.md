@@ -26,4 +26,5 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Step 0017 extraction previews are extracted evidence previews only. Do not cite pasted text as final requirement truth, do not treat it as indexed knowledge, and do not include it in Story analysis until explicit evidence linking and user confirmation exist.
 - Step 0018 linked board knowledge is user-selected context, not automatic truth. Metadata-only evidence must warn that content has not been extracted or analyzed, extracted preview evidence must warn that only capped preview text is included, and Story analysis must still require confirmation.
 - Step 0019 draft test cases must cite evidence links, preserve uncertainty labels, warn when evidence is weak/missing, and remain draft-only until QA approves them.
-- Test cases must not be treated as final until a later confirmed-evidence workflow exists.
+- Step 0020 lets QA edit and approve drafts for later export, but approved-for-export still does not mean created in Azure Test Plans. Rejected and blocked cases are not export-ready. Evidence links and warnings must remain visible while reviewing.
+- Test cases must not be treated as final until a later explicit export/write-back workflow exists.

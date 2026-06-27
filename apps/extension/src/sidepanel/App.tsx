@@ -18,6 +18,9 @@ import type {
   StoryRequirementAnalysis,
   TestCaseDraftGenerationResult,
   TestCaseDraftSelectedInputs,
+  ReviewedTestCase,
+  TestCaseDraft,
+  TestCaseReviewSession,
   WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
@@ -31,6 +34,7 @@ import {
   generateBoardBriefing,
   generateTestCaseDrafts,
   listAzureTeams,
+  normalizeReviewedTestCases,
   summarizeBoardKnowledge,
   validateBoardKnowledgeSource
 } from "../api/qaAssistApiClient";
@@ -47,6 +51,7 @@ type BriefingStatus = "idle" | "loading" | "success" | "error";
 type StoryDetailStatus = "idle" | "loading" | "success" | "error";
 type StoryAnalysisStatus = "idle" | "loading" | "success" | "error";
 type DraftGenerationStatus = "idle" | "loading" | "success" | "error";
+type ReviewStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -120,6 +125,10 @@ export function App() {
   const [draftStatus, setDraftStatus] = useState<DraftGenerationStatus>("idle");
   const [draftMessage, setDraftMessage] = useState("Analyze requirements before drafting test cases.");
   const [draftResult, setDraftResult] = useState<TestCaseDraftGenerationResult | null>(null);
+  const [reviewCases, setReviewCases] = useState<ReviewedTestCase[]>([]);
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>("idle");
+  const [reviewMessage, setReviewMessage] = useState("Generate draft cases before review.");
+  const [reviewSession, setReviewSession] = useState<TestCaseReviewSession | null>(null);
   const [draftInputs, setDraftInputs] = useState<Required<TestCaseDraftSelectedInputs>>({
     includePositivePath: true,
     includeNegativePath: true,
@@ -176,6 +185,7 @@ export function App() {
     setDraftResult(null);
     setDraftStatus("idle");
     setDraftMessage("Analyze requirements before drafting test cases.");
+    resetTestCaseReviewState("Generate draft cases before review.");
     setSelectedKnowledgeSourceIds([]);
     setIncludeLatestExtraction(false);
     setUserConfirmedNote("");
@@ -286,6 +296,7 @@ export function App() {
     setDraftResult(null);
     setDraftStatus("idle");
     setDraftMessage("Analyze requirements before drafting test cases.");
+    resetTestCaseReviewState("Generate draft cases before review.");
 
     try {
       const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
@@ -339,6 +350,7 @@ export function App() {
       setDraftResult(null);
       setDraftStatus("idle");
       setDraftMessage("Analysis is ready. Draft cases are still not generated.");
+      resetTestCaseReviewState("Generate draft cases before review.");
     } catch (error) {
       setStoryAnalysis(null);
       setStoryAnalysisStatus("error");
@@ -346,7 +358,15 @@ export function App() {
       setDraftResult(null);
       setDraftStatus("idle");
       setDraftMessage("Analyze requirements before drafting test cases.");
+      resetTestCaseReviewState("Generate draft cases before review.");
     }
+  }
+
+  function resetTestCaseReviewState(message: string): void {
+    setReviewCases([]);
+    setReviewSession(null);
+    setReviewStatus("idle");
+    setReviewMessage(message);
   }
 
   async function generateDraftCases(): Promise<void> {
@@ -367,12 +387,48 @@ export function App() {
       });
 
       setDraftResult(result);
+      setReviewCases(result.draftCases.map(createReviewedCaseFromDraft));
+      setReviewSession(null);
+      setReviewStatus("idle");
+      setReviewMessage("Review generated drafts locally. Nothing is exported or written back.");
       setDraftStatus("success");
       setDraftMessage("Draft cases generated. QA review is required before use.");
     } catch (error) {
       setDraftResult(null);
+      resetTestCaseReviewState("Generate draft cases before review.");
       setDraftStatus("error");
       setDraftMessage(error instanceof Error ? error.message : "Draft generation failed.");
+    }
+  }
+
+  async function validateReviewDecisions(): Promise<void> {
+    if (!workItemDetail || !draftResult) {
+      setReviewStatus("error");
+      setReviewMessage("Generate draft cases before validating review decisions.");
+      return;
+    }
+
+    setReviewStatus("loading");
+    setReviewMessage("Validating local review decisions...");
+
+    try {
+      const session = await normalizeReviewedTestCases(settings.apiBaseUrl, {
+        workItem: {
+          workItemId: workItemDetail.workItemId,
+          title: workItemDetail.title
+        },
+        draftResult,
+        reviewedCases: reviewCases
+      });
+
+      setReviewSession(session);
+      setReviewCases(session.reviewedCases);
+      setReviewStatus("success");
+      setReviewMessage("Review decisions validated locally. Nothing was created in Azure Test Plans.");
+    } catch (error) {
+      setReviewSession(null);
+      setReviewStatus("error");
+      setReviewMessage(error instanceof Error ? error.message : "Review validation failed.");
     }
   }
 
@@ -414,6 +470,11 @@ export function App() {
           draftStatus,
           draftMessage,
           draftResult,
+          reviewCases,
+          setReviewCases,
+          reviewStatus,
+          reviewMessage,
+          reviewSession,
           draftInputs,
           setDraftInputs,
           selectedKnowledgeSourceIds,
@@ -427,6 +488,7 @@ export function App() {
           onFetchStoryDetail: fetchStoryDetail,
           onAnalyzeStory: analyzeStory,
           onGenerateDraftCases: generateDraftCases,
+          onValidateReviewDecisions: validateReviewDecisions,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -467,6 +529,11 @@ function renderPanel(props: {
   draftStatus: DraftGenerationStatus;
   draftMessage: string;
   draftResult: TestCaseDraftGenerationResult | null;
+  reviewCases: ReviewedTestCase[];
+  setReviewCases: (reviewCases: ReviewedTestCase[]) => void;
+  reviewStatus: ReviewStatus;
+  reviewMessage: string;
+  reviewSession: TestCaseReviewSession | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -480,6 +547,7 @@ function renderPanel(props: {
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
   onGenerateDraftCases: () => void;
+  onValidateReviewDecisions: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -513,6 +581,11 @@ function renderPanel(props: {
           draftStatus={props.draftStatus}
           draftMessage={props.draftMessage}
           draftResult={props.draftResult}
+          reviewCases={props.reviewCases}
+          setReviewCases={props.setReviewCases}
+          reviewStatus={props.reviewStatus}
+          reviewMessage={props.reviewMessage}
+          reviewSession={props.reviewSession}
           draftInputs={props.draftInputs}
           setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
@@ -525,6 +598,7 @@ function renderPanel(props: {
           onFetchStoryDetail={props.onFetchStoryDetail}
           onAnalyzeStory={props.onAnalyzeStory}
           onGenerateDraftCases={props.onGenerateDraftCases}
+          onValidateReviewDecisions={props.onValidateReviewDecisions}
         />
       );
     case "run":
@@ -636,6 +710,11 @@ function StoryPanel({
   draftStatus,
   draftMessage,
   draftResult,
+  reviewCases,
+  setReviewCases,
+  reviewStatus,
+  reviewMessage,
+  reviewSession,
   draftInputs,
   setDraftInputs,
   selectedKnowledgeSourceIds,
@@ -647,7 +726,8 @@ function StoryPanel({
   latestExtractionResult,
   onFetchStoryDetail,
   onAnalyzeStory,
-  onGenerateDraftCases
+  onGenerateDraftCases,
+  onValidateReviewDecisions
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -661,6 +741,11 @@ function StoryPanel({
   draftStatus: DraftGenerationStatus;
   draftMessage: string;
   draftResult: TestCaseDraftGenerationResult | null;
+  reviewCases: ReviewedTestCase[];
+  setReviewCases: (reviewCases: ReviewedTestCase[]) => void;
+  reviewStatus: ReviewStatus;
+  reviewMessage: string;
+  reviewSession: TestCaseReviewSession | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -673,6 +758,7 @@ function StoryPanel({
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
   onGenerateDraftCases: () => void;
+  onValidateReviewDecisions: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -734,9 +820,15 @@ function StoryPanel({
             status={draftStatus}
             message={draftMessage}
             result={draftResult}
+            reviewCases={reviewCases}
+            onReviewCasesChange={setReviewCases}
+            reviewStatus={reviewStatus}
+            reviewMessage={reviewMessage}
+            reviewSession={reviewSession}
             inputs={draftInputs}
             onInputsChange={setDraftInputs}
             onGenerate={onGenerateDraftCases}
+            onValidateReviewDecisions={onValidateReviewDecisions}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -973,17 +1065,29 @@ function TestCaseDraftCard({
   status,
   message,
   result,
+  reviewCases,
+  onReviewCasesChange,
+  reviewStatus,
+  reviewMessage,
+  reviewSession,
   inputs,
   onInputsChange,
-  onGenerate
+  onGenerate,
+  onValidateReviewDecisions
 }: {
   analysis: StoryRequirementAnalysis | null;
   status: DraftGenerationStatus;
   message: string;
   result: TestCaseDraftGenerationResult | null;
+  reviewCases: ReviewedTestCase[];
+  onReviewCasesChange: (reviewCases: ReviewedTestCase[]) => void;
+  reviewStatus: ReviewStatus;
+  reviewMessage: string;
+  reviewSession: TestCaseReviewSession | null;
   inputs: Required<TestCaseDraftSelectedInputs>;
   onInputsChange: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   onGenerate: () => void;
+  onValidateReviewDecisions: () => void;
 }) {
   function toggleInput(key: keyof Required<TestCaseDraftSelectedInputs>): void {
     onInputsChange({ ...inputs, [key]: !inputs[key] });
@@ -1008,7 +1112,17 @@ function TestCaseDraftCard({
         onClick={onGenerate}
       />
       {!analysis ? <p className="analysis-empty">Analyze requirements before drafting test cases.</p> : null}
-      {result ? <TestCaseDraftResult result={result} /> : null}
+      {result ? (
+        <TestCaseDraftResult
+          result={result}
+          reviewCases={reviewCases}
+          onReviewCasesChange={onReviewCasesChange}
+          reviewStatus={reviewStatus}
+          reviewMessage={reviewMessage}
+          reviewSession={reviewSession}
+          onValidateReviewDecisions={onValidateReviewDecisions}
+        />
+      ) : null}
     </article>
   );
 }
@@ -1024,7 +1138,31 @@ function DraftOption({ label, checked, onChange }: { label: string; checked: boo
   );
 }
 
-function TestCaseDraftResult({ result }: { result: TestCaseDraftGenerationResult }) {
+function TestCaseDraftResult({
+  result,
+  reviewCases,
+  onReviewCasesChange,
+  reviewStatus,
+  reviewMessage,
+  reviewSession,
+  onValidateReviewDecisions
+}: {
+  result: TestCaseDraftGenerationResult;
+  reviewCases: ReviewedTestCase[];
+  onReviewCasesChange: (reviewCases: ReviewedTestCase[]) => void;
+  reviewStatus: ReviewStatus;
+  reviewMessage: string;
+  reviewSession: TestCaseReviewSession | null;
+  onValidateReviewDecisions: () => void;
+}) {
+  const summary = reviewSession?.summary ?? buildLocalReviewSummary(reviewCases, result.draftCases.length);
+
+  function updateReviewCase(originalDraftId: string, updater: (reviewCase: ReviewedTestCase) => ReviewedTestCase): void {
+    onReviewCasesChange(reviewCases.map((reviewCase) =>
+      reviewCase.originalDraftId === originalDraftId ? updater(reviewCase) : reviewCase
+    ));
+  }
+
   return (
     <div className="draft-result">
       <InfoGrid
@@ -1037,41 +1175,175 @@ function TestCaseDraftResult({ result }: { result: TestCaseDraftGenerationResult
       />
       <AnalysisList title="Draft warnings" items={result.warnings.map((warning) => warning.message)} />
       <AnalysisList title="Needs confirmation" items={result.needsConfirmation.slice(0, 5)} />
+      <article className="review-panel">
+        <div className="card-row">
+          <h4>Review workflow</h4>
+          <span className={reviewStatus === "success" ? "status-pill success" : reviewStatus === "error" ? "status-pill warning" : "status-pill"}>
+            {reviewSession ? "Validated" : "Local review"}
+          </span>
+        </div>
+        <p>Review and edit drafts locally before any later export flow. No Azure Test Plans item is created here.</p>
+        <InfoGrid
+          items={[
+            ["Total", String(summary.totalReviewed)],
+            ["Ready later", String(summary.readyForExport)],
+            ["Approved", String(summary.approved)],
+            ["Rejected", String(summary.rejected)],
+            ["Blocked", String(summary.blocked)],
+            ["Edited", String(summary.edited)]
+          ]}
+        />
+        <SecondaryAction
+          label={reviewStatus === "loading" ? "Validating review..." : "Validate review decisions"}
+          disabled={reviewStatus === "loading" || reviewCases.length === 0}
+          onClick={onValidateReviewDecisions}
+        />
+        <InfoCard title="Review status" body={reviewMessage} tone={reviewStatus === "error" ? "warning" : "neutral"} />
+        <AnalysisList title="Review warnings" items={summary.warnings} />
+      </article>
       <div className="draft-list">
         {result.draftCases.map((draftCase) => (
-          <article className="draft-case" key={draftCase.id}>
-            <div className="card-row">
-              <h4>{draftCase.title}</h4>
-              <span className="status-pill">{draftCase.status}</span>
-            </div>
-            <p>{draftCase.objective}</p>
-            <InfoGrid
-              items={[
-                ["Priority", draftCase.priority],
-                ["Certainty", draftCase.certainty],
-                ["Type", draftCase.testType]
-              ]}
-            />
-            <BriefingList title="Preconditions" items={draftCase.preconditions} />
-            <div className="briefing-list">
-              <span>Steps</span>
-              <ol>
-                {draftCase.steps.map((step) => (
-                  <li key={step.order}>
-                    {step.action} Expected: {step.expectedResult}
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <p><strong>Expected result:</strong> {draftCase.expectedResult}</p>
-            <BriefingList title="Evidence links" items={draftCase.evidenceLinks.map((link) => `${link.label} (${link.certainty})`)} />
-            <BriefingList title="Warnings" items={draftCase.warnings.map((warning) => warning.message)} />
-          </article>
+          <TestCaseReviewEditor
+            key={draftCase.id}
+            draftCase={draftCase}
+            reviewCase={reviewCases.find((reviewCase) => reviewCase.originalDraftId === draftCase.id) ?? createReviewedCaseFromDraft(draftCase)}
+            onChange={(updater) => updateReviewCase(draftCase.id, updater)}
+          />
         ))}
       </div>
-      <p className="trust-note">{result.disclaimer}</p>
+      <p className="trust-note">{reviewSession?.disclaimer ?? result.disclaimer}</p>
     </div>
   );
+}
+
+function TestCaseReviewEditor({
+  draftCase,
+  reviewCase,
+  onChange
+}: {
+  draftCase: TestCaseDraft;
+  reviewCase: ReviewedTestCase;
+  onChange: (updater: (reviewCase: ReviewedTestCase) => ReviewedTestCase) => void;
+}) {
+  function markEdited(updates: Partial<ReviewedTestCase>): ReviewedTestCase {
+    return {
+      ...reviewCase,
+      ...updates,
+      status: reviewCase.status === "approved-for-export" ? "edited" : updates.status ?? (reviewCase.status === "needs-review" ? "edited" : reviewCase.status),
+      decision: updates.decision ?? "edit",
+      approvedByUser: updates.approvedByUser ?? false,
+      readyForExport: false,
+      editedByUser: true,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function updateStep(order: number, key: "action" | "expectedResult", value: string): void {
+    onChange(() => markEdited({
+      reviewedSteps: reviewCase.reviewedSteps.map((step) =>
+        step.order === order ? { ...step, [key]: value } : step
+      )
+    }));
+  }
+
+  function setDecision(decision: ReviewedTestCase["decision"]): void {
+    const statusByDecision: Record<ReviewedTestCase["decision"], ReviewedTestCase["status"]> = {
+      approve: "approved-for-export",
+      reject: "rejected",
+      edit: "edited",
+      block: "blocked"
+    };
+
+    onChange((current) => ({
+      ...current,
+      status: statusByDecision[decision],
+      decision,
+      approvedByUser: decision === "approve",
+      readyForExport: decision === "approve",
+      updatedAt: new Date().toISOString()
+    }));
+  }
+
+  return (
+    <article className="draft-case review-case">
+      <div className="card-row">
+        <h4>{reviewCase.reviewedTitle || draftCase.title}</h4>
+        <span className={reviewCase.status === "approved-for-export" ? "status-pill success" : reviewCase.status === "blocked" || reviewCase.status === "rejected" ? "status-pill warning" : "status-pill"}>
+          {reviewCase.status}
+        </span>
+      </div>
+      <InfoGrid
+        items={[
+          ["Priority", draftCase.priority],
+          ["Certainty", draftCase.certainty],
+          ["Type", draftCase.testType]
+        ]}
+      />
+      <TextInput label="Reviewed title" value={reviewCase.reviewedTitle} onChange={(value) => onChange(() => markEdited({ reviewedTitle: value }))} />
+      <TextAreaInput label="Reviewed objective" value={reviewCase.reviewedObjective} onChange={(value) => onChange(() => markEdited({ reviewedObjective: value }))} />
+      <BriefingList title="Preconditions" items={reviewCase.reviewedPreconditions} />
+      <div className="review-step-list">
+        <span>Reviewed steps</span>
+        {reviewCase.reviewedSteps.map((step) => (
+          <div className="review-step" key={step.order}>
+            <TextAreaInput label={`Step ${step.order} action`} value={step.action} onChange={(value) => updateStep(step.order, "action", value)} />
+            <TextAreaInput label={`Step ${step.order} expected`} value={step.expectedResult} onChange={(value) => updateStep(step.order, "expectedResult", value)} />
+          </div>
+        ))}
+      </div>
+      <TextAreaInput label="Reviewed expected result" value={reviewCase.reviewedExpectedResult} onChange={(value) => onChange(() => markEdited({ reviewedExpectedResult: value }))} />
+      <TextAreaInput label="Reviewer note optional" value={reviewCase.reviewerNote ?? ""} onChange={(value) => onChange(() => markEdited({ reviewerNote: value }))} />
+      <div className="review-actions">
+        <button type="button" onClick={() => setDecision("approve")}>Approve for later export</button>
+        <button type="button" onClick={() => setDecision("reject")}>Reject</button>
+        <button type="button" onClick={() => setDecision("block")}>Block</button>
+      </div>
+      <BriefingList title="Evidence links" items={reviewCase.evidenceLinks.map((link) => `${link.label} (${link.certainty})`)} />
+      <BriefingList title="Warnings" items={reviewCase.warnings.map((warning) => warning.message)} />
+    </article>
+  );
+}
+
+function createReviewedCaseFromDraft(draftCase: TestCaseDraft): ReviewedTestCase {
+  const now = new Date().toISOString();
+
+  return {
+    originalDraftId: draftCase.id,
+    reviewedTitle: draftCase.title,
+    reviewedObjective: draftCase.objective,
+    reviewedPreconditions: draftCase.preconditions,
+    reviewedSteps: draftCase.steps,
+    reviewedExpectedResult: draftCase.expectedResult,
+    status: "needs-review",
+    decision: "edit",
+    editedByUser: false,
+    approvedByUser: false,
+    readyForExport: false,
+    sourceDraft: draftCase,
+    evidenceLinks: draftCase.evidenceLinks,
+    warnings: draftCase.warnings,
+    updatedAt: now
+  };
+}
+
+function buildLocalReviewSummary(reviewCases: ReviewedTestCase[], totalDrafts: number): TestCaseReviewSession["summary"] {
+  const summary: TestCaseReviewSession["summary"] = {
+    totalDrafts,
+    totalReviewed: reviewCases.length,
+    approved: reviewCases.filter((reviewCase) => reviewCase.status === "approved-for-export").length,
+    rejected: reviewCases.filter((reviewCase) => reviewCase.status === "rejected").length,
+    blocked: reviewCases.filter((reviewCase) => reviewCase.status === "blocked").length,
+    edited: reviewCases.filter((reviewCase) => reviewCase.editedByUser || reviewCase.status === "edited").length,
+    readyForExport: reviewCases.filter((reviewCase) => reviewCase.readyForExport).length,
+    needsReview: reviewCases.filter((reviewCase) => reviewCase.status === "needs-review").length,
+    warnings: []
+  };
+
+  if (summary.readyForExport === 0) {
+    summary.warnings.push("No cases are approved for later export yet.");
+  }
+
+  return summary;
 }
 
 function AnalysisList({ title, items }: { title: string; items: string[] }) {

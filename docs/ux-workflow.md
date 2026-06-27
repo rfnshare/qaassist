@@ -31,6 +31,8 @@ Step 0016 adds board knowledge metadata in Settings. Step 0017 adds manual-paste
 
 Step 0019 adds deterministic draft test case generation after Story analysis. Drafts must stay labeled as draft-only, cite evidence links, show warnings for missing/weak evidence, and avoid Azure Test Plans creation until a later explicit approval flow exists.
 
+Step 0020 adds a local/session review workflow for generated drafts. QA can edit title, objective, steps, expected result, and reviewer note, then explicitly approve for later export, reject, or block each draft. Approval means ready for a future export flow only; it does not create Azure Test Plans items, save to a database, or write back to Azure. Evidence links and warnings remain visible during review.
+
 ## Setup Flow
 
 Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.

@@ -32,7 +32,9 @@ import type {
   TestPlansReadinessResult,
   TestPlansTargetSettings,
   WorkItemDetail,
-  WorkRecommendation
+  WorkRecommendation,
+  WritebackHelperType,
+  WritebackPreviewResult
 } from "@qa-assist/shared";
 import {
   analyzeStoryRequirements,
@@ -50,6 +52,7 @@ import {
   mapAutomationCandidates,
   normalizeReviewedTestCases,
   previewTestPlansReadiness,
+  previewWritebackHelper,
   requestStoryAnalysisAssist,
   summarizeBoardKnowledge,
   validateBoardKnowledgeSource
@@ -73,6 +76,7 @@ type TestPlansReadinessStatus = "idle" | "loading" | "success" | "error";
 type TestPlansCreationRequestStatus = "idle" | "loading" | "success" | "error";
 type AutomationMappingStatus = "idle" | "loading" | "success" | "error";
 type ReviewExportStatus = "idle" | "loading" | "success" | "error";
+type WritebackPreviewRequestStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -115,6 +119,12 @@ const REVIEW_EXPORT_SECTION_OPTIONS: Array<{ label: string; value: ReviewExportS
   { label: "Readiness", value: "test-plans-readiness" },
   { label: "Creation results", value: "test-plans-creation" },
   { label: "Automation", value: "automation-candidates" }
+];
+const WRITEBACK_HELPER_OPTIONS: Array<{ label: string; value: WritebackHelperType }> = [
+  { label: "Bug draft", value: "bug-draft" },
+  { label: "Comment draft", value: "comment-draft" },
+  { label: "State transition", value: "state-transition" },
+  { label: "Attachment metadata", value: "attachment-metadata" }
 ];
 const DEFAULT_SETTINGS: ExtensionSettings = {
   apiBaseUrl: DEFAULT_API_BASE_URL,
@@ -201,6 +211,15 @@ export function App() {
   const [reviewExportResult, setReviewExportResult] = useState<ReviewExportResult | null>(null);
   const [reviewExportFormat, setReviewExportFormat] = useState<ReviewExportFormat>("markdown");
   const [reviewExportSections, setReviewExportSections] = useState<ReviewExportSection[]>(DEFAULT_EXPORT_SECTIONS);
+  const [writebackPreviewStatus, setWritebackPreviewStatus] = useState<WritebackPreviewRequestStatus>("idle");
+  const [writebackPreviewMessage, setWritebackPreviewMessage] = useState("Preview helpers are available after useful Story data exists.");
+  const [writebackPreviewResult, setWritebackPreviewResult] = useState<WritebackPreviewResult | null>(null);
+  const [writebackHelperType, setWritebackHelperType] = useState<WritebackHelperType>("comment-draft");
+  const [writebackUserNotes, setWritebackUserNotes] = useState("");
+  const [writebackTargetState, setWritebackTargetState] = useState("");
+  const [writebackAttachmentFileName, setWritebackAttachmentFileName] = useState("");
+  const [writebackAttachmentContentType, setWritebackAttachmentContentType] = useState("");
+  const [writebackAttachmentSizeBytes, setWritebackAttachmentSizeBytes] = useState("");
   const [draftInputs, setDraftInputs] = useState<Required<TestCaseDraftSelectedInputs>>({
     includePositivePath: true,
     includeNegativePath: true,
@@ -285,6 +304,7 @@ export function App() {
     resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
     resetReviewExport("Story context changed. Generate a fresh export package after useful data exists.");
+    resetWritebackPreview("Story context changed. Preview helper again when ready.");
     setSelectedKnowledgeSourceIds([]);
     setIncludeLatestExtraction(false);
     setUserConfirmedNote("");
@@ -405,6 +425,7 @@ export function App() {
     resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
     resetReviewExport("Story detail fetch started. Export after the latest data is ready.");
+    resetWritebackPreview("Story detail fetch started. Preview helper after the latest data is ready.");
 
     try {
       const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
@@ -463,6 +484,7 @@ export function App() {
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
       resetReviewExport("Story analysis changed. Generate a fresh export package when ready.");
+      resetWritebackPreview("Story analysis changed. Preview helper again when ready.");
     } catch (error) {
       setStoryAnalysis(null);
       setStoryAnalysisStatus("error");
@@ -475,6 +497,7 @@ export function App() {
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
       resetReviewExport("Story analysis failed. Export after useful data exists.");
+      resetWritebackPreview("Story analysis failed. Preview helper after useful data exists.");
     }
   }
 
@@ -485,6 +508,7 @@ export function App() {
     setReviewMessage(message);
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
     resetReviewExport("Review state changed. Generate a fresh export package when ready.");
+    resetWritebackPreview("Review state changed. Preview helper again when ready.");
   }
 
   function resetAiAssist(message: string): void {
@@ -550,6 +574,13 @@ export function App() {
     setReviewExportResult(null);
     setReviewExportStatus("idle");
     setReviewExportMessage(message);
+    resetWritebackPreview("Export package changed. Preview helper again when ready.");
+  }
+
+  function resetWritebackPreview(message: string): void {
+    setWritebackPreviewResult(null);
+    setWritebackPreviewStatus("idle");
+    setWritebackPreviewMessage(message);
   }
 
   function updateReviewCases(nextReviewCases: ReviewedTestCase[]): void {
@@ -557,6 +588,7 @@ export function App() {
     resetTestPlansReadiness("Review decisions changed. Validate review decisions before previewing Azure Test Plans readiness.");
     resetAutomationMapping("Review decisions changed. Validate review decisions before mapping automation candidates.");
     resetReviewExport("Review decisions changed. Generate a fresh export package after validation.");
+    resetWritebackPreview("Review decisions changed. Preview helper after validation.");
   }
 
   async function generateDraftCases(): Promise<void> {
@@ -584,6 +616,7 @@ export function App() {
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
       resetReviewExport("Draft cases changed. Generate a fresh export package when ready.");
+      resetWritebackPreview("Draft cases changed. Preview helper again when ready.");
       setDraftStatus("success");
       setDraftMessage("Draft cases generated. QA review is required before use.");
     } catch (error) {
@@ -592,6 +625,7 @@ export function App() {
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
       resetReviewExport("Draft generation failed. Export after useful data exists.");
+      resetWritebackPreview("Draft generation failed. Preview helper after useful data exists.");
       setDraftStatus("error");
       setDraftMessage(error instanceof Error ? error.message : "Draft generation failed.");
     }
@@ -609,6 +643,7 @@ export function App() {
     resetTestPlansReadiness("Review validation is running. Preview readiness after validation succeeds.");
     resetAutomationMapping("Review validation is running. Map automation candidates after validation succeeds.");
     resetReviewExport("Review validation is running. Export after validation succeeds.");
+    resetWritebackPreview("Review validation is running. Preview helper after validation succeeds.");
 
     try {
       const session = await normalizeReviewedTestCases(settings.apiBaseUrl, {
@@ -627,6 +662,7 @@ export function App() {
       resetTestPlansReadiness("Review decisions validated. Preview Azure Test Plans readiness when ready.");
       resetAutomationMapping("Review decisions validated. Map automation candidates when ready.");
       resetReviewExport("Review decisions validated. Generate export package when ready.");
+      resetWritebackPreview("Review decisions validated. Preview helper when ready.");
     } catch (error) {
       setReviewSession(null);
       setReviewStatus("error");
@@ -634,6 +670,7 @@ export function App() {
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
       resetReviewExport("Review validation failed. Export after useful data exists.");
+      resetWritebackPreview("Review validation failed. Preview helper after useful data exists.");
     }
   }
 
@@ -657,11 +694,13 @@ export function App() {
       setAutomationMappingStatus("success");
       setAutomationMappingMessage("Automation candidate mapping is ready. Planning only - no automation code created.");
       resetReviewExport("Automation mapping is ready. Generate export package when ready.");
+      resetWritebackPreview("Automation mapping changed. Preview helper again when ready.");
     } catch (error) {
       setAutomationMappingResult(null);
       setAutomationMappingStatus("error");
       setAutomationMappingMessage(error instanceof Error ? error.message : "Automation candidate mapping failed.");
       resetReviewExport("Automation mapping failed. Generate export package after useful data exists.");
+      resetWritebackPreview("Automation mapping failed. Preview helper after useful data exists.");
     }
   }
 
@@ -694,6 +733,7 @@ export function App() {
       setTestPlansCreationConfirmed(false);
       resetTestPlansCreation("Select readiness candidates and confirm before creating in Azure Test Plans.");
       resetReviewExport("Readiness preview changed. Generate a fresh export package when ready.");
+      resetWritebackPreview("Readiness preview changed. Preview helper again when ready.");
     } catch (error) {
       setTestPlansReadiness(null);
       setTestPlansReadinessStatus("error");
@@ -702,6 +742,7 @@ export function App() {
       setTestPlansCreationConfirmed(false);
       resetTestPlansCreation("Preview readiness before creating in Azure Test Plans.");
       resetReviewExport("Readiness preview failed. Generate export package after useful data exists.");
+      resetWritebackPreview("Readiness preview failed. Preview helper after useful data exists.");
     }
   }
 
@@ -710,6 +751,7 @@ export function App() {
     setTestPlansCreationConfirmed(false);
     resetTestPlansCreation("Candidate selection changed. Confirm again before creating selected test cases.");
     resetReviewExport("Test Plans candidate selection changed. Generate a fresh export package when ready.");
+    resetWritebackPreview("Test Plans candidate selection changed. Preview helper again when ready.");
   }
 
   async function createSelectedAzureTestPlansCases(): Promise<void> {
@@ -750,12 +792,14 @@ export function App() {
       setTestPlansCreationConfirmed(false);
       setTestPlansCreationMessage("Azure Test Plans creation completed for the explicit selection. Review created, failed, and skipped items.");
       resetReviewExport("Creation result changed. Generate a fresh export package when ready.");
+      resetWritebackPreview("Creation result changed. Preview helper again when ready.");
     } catch (error) {
       setTestPlansCreationResult(null);
       setTestPlansCreationStatus("error");
       setTestPlansCreationConfirmed(false);
       setTestPlansCreationMessage(error instanceof Error ? error.message : "Azure Test Plans creation failed.");
       resetReviewExport("Creation failed. Generate export package after useful data exists.");
+      resetWritebackPreview("Creation failed. Preview helper after useful data exists.");
     }
   }
 
@@ -810,6 +854,81 @@ export function App() {
   function updateReviewExportSections(sections: ReviewExportSection[]): void {
     setReviewExportSections(sections);
     resetReviewExport("Export sections changed. Generate a fresh review package.");
+  }
+
+  async function previewSelectedWritebackHelper(): Promise<void> {
+    if (!hasExportableStoryData({
+      workItemDetail,
+      storyAnalysis,
+      aiAssistResult,
+      draftResult,
+      reviewSession,
+      testPlansReadiness,
+      testPlansCreationResult,
+      automationMappingResult
+    })) {
+      setWritebackPreviewStatus("error");
+      setWritebackPreviewMessage("Fetch or generate useful Story data before previewing write-back helpers.");
+      return;
+    }
+
+    setWritebackPreviewStatus("loading");
+    setWritebackPreviewMessage("Building preview only. Nothing will be written to Azure DevOps.");
+
+    try {
+      const result = await previewWritebackHelper(settings.apiBaseUrl, {
+        helperType: writebackHelperType,
+        workItemDetail: workItemDetail ?? undefined,
+        reviewSession: reviewSession ?? undefined,
+        selectedEvidence: buildWritebackEvidence(storyAnalysis, reviewSession),
+        userNotes: writebackUserNotes,
+        targetState: writebackTargetState,
+        attachmentMetadata: {
+          fileName: writebackAttachmentFileName,
+          contentType: normalizeOptional(writebackAttachmentContentType),
+          sizeBytes: writebackAttachmentSizeBytes.trim() ? Number(writebackAttachmentSizeBytes) : undefined,
+          sourceLabel: "QA Assist session evidence metadata"
+        }
+      });
+
+      setWritebackPreviewResult(result);
+      setWritebackPreviewStatus("success");
+      setWritebackPreviewMessage("Write-back helper preview generated. Final submission is not implemented in this step.");
+    } catch (error) {
+      setWritebackPreviewResult(null);
+      setWritebackPreviewStatus("error");
+      setWritebackPreviewMessage(error instanceof Error ? error.message : "Write-back helper preview failed.");
+    }
+  }
+
+  function updateWritebackHelperType(helperType: WritebackHelperType): void {
+    setWritebackHelperType(helperType);
+    resetWritebackPreview("Helper type changed. Preview again when ready.");
+  }
+
+  function updateWritebackUserNotes(notes: string): void {
+    setWritebackUserNotes(notes);
+    resetWritebackPreview("Notes changed. Preview again when ready.");
+  }
+
+  function updateWritebackTargetState(targetState: string): void {
+    setWritebackTargetState(targetState);
+    resetWritebackPreview("Target state changed. Preview again when ready.");
+  }
+
+  function updateWritebackAttachmentFileName(fileName: string): void {
+    setWritebackAttachmentFileName(fileName);
+    resetWritebackPreview("Attachment metadata changed. Preview again when ready.");
+  }
+
+  function updateWritebackAttachmentContentType(contentType: string): void {
+    setWritebackAttachmentContentType(contentType);
+    resetWritebackPreview("Attachment metadata changed. Preview again when ready.");
+  }
+
+  function updateWritebackAttachmentSizeBytes(sizeBytes: string): void {
+    setWritebackAttachmentSizeBytes(sizeBytes);
+    resetWritebackPreview("Attachment metadata changed. Preview again when ready.");
   }
 
   return (
@@ -880,6 +999,21 @@ export function App() {
           setReviewExportFormat: updateReviewExportFormat,
           reviewExportSections,
           setReviewExportSections: updateReviewExportSections,
+          writebackPreviewStatus,
+          writebackPreviewMessage,
+          writebackPreviewResult,
+          writebackHelperType,
+          setWritebackHelperType: updateWritebackHelperType,
+          writebackUserNotes,
+          setWritebackUserNotes: updateWritebackUserNotes,
+          writebackTargetState,
+          setWritebackTargetState: updateWritebackTargetState,
+          writebackAttachmentFileName,
+          setWritebackAttachmentFileName: updateWritebackAttachmentFileName,
+          writebackAttachmentContentType,
+          setWritebackAttachmentContentType: updateWritebackAttachmentContentType,
+          writebackAttachmentSizeBytes,
+          setWritebackAttachmentSizeBytes: updateWritebackAttachmentSizeBytes,
           draftInputs,
           setDraftInputs,
           selectedKnowledgeSourceIds,
@@ -901,6 +1035,7 @@ export function App() {
           onCreateSelectedTestPlansCases: createSelectedAzureTestPlansCases,
           onMapAutomationCandidates: mapReviewedAutomationCandidates,
           onGenerateReviewExport: generateReviewExportPackage,
+          onPreviewWritebackHelper: previewSelectedWritebackHelper,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -971,6 +1106,21 @@ function renderPanel(props: {
   setReviewExportFormat: (format: ReviewExportFormat) => void;
   reviewExportSections: ReviewExportSection[];
   setReviewExportSections: (sections: ReviewExportSection[]) => void;
+  writebackPreviewStatus: WritebackPreviewRequestStatus;
+  writebackPreviewMessage: string;
+  writebackPreviewResult: WritebackPreviewResult | null;
+  writebackHelperType: WritebackHelperType;
+  setWritebackHelperType: (helperType: WritebackHelperType) => void;
+  writebackUserNotes: string;
+  setWritebackUserNotes: (notes: string) => void;
+  writebackTargetState: string;
+  setWritebackTargetState: (targetState: string) => void;
+  writebackAttachmentFileName: string;
+  setWritebackAttachmentFileName: (fileName: string) => void;
+  writebackAttachmentContentType: string;
+  setWritebackAttachmentContentType: (contentType: string) => void;
+  writebackAttachmentSizeBytes: string;
+  setWritebackAttachmentSizeBytes: (sizeBytes: string) => void;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -992,6 +1142,7 @@ function renderPanel(props: {
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
   onGenerateReviewExport: () => void;
+  onPreviewWritebackHelper: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -1054,6 +1205,21 @@ function renderPanel(props: {
           setReviewExportFormat={props.setReviewExportFormat}
           reviewExportSections={props.reviewExportSections}
           setReviewExportSections={props.setReviewExportSections}
+          writebackPreviewStatus={props.writebackPreviewStatus}
+          writebackPreviewMessage={props.writebackPreviewMessage}
+          writebackPreviewResult={props.writebackPreviewResult}
+          writebackHelperType={props.writebackHelperType}
+          setWritebackHelperType={props.setWritebackHelperType}
+          writebackUserNotes={props.writebackUserNotes}
+          setWritebackUserNotes={props.setWritebackUserNotes}
+          writebackTargetState={props.writebackTargetState}
+          setWritebackTargetState={props.setWritebackTargetState}
+          writebackAttachmentFileName={props.writebackAttachmentFileName}
+          setWritebackAttachmentFileName={props.setWritebackAttachmentFileName}
+          writebackAttachmentContentType={props.writebackAttachmentContentType}
+          setWritebackAttachmentContentType={props.setWritebackAttachmentContentType}
+          writebackAttachmentSizeBytes={props.writebackAttachmentSizeBytes}
+          setWritebackAttachmentSizeBytes={props.setWritebackAttachmentSizeBytes}
           draftInputs={props.draftInputs}
           setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
@@ -1074,6 +1240,7 @@ function renderPanel(props: {
           onCreateSelectedTestPlansCases={props.onCreateSelectedTestPlansCases}
           onMapAutomationCandidates={props.onMapAutomationCandidates}
           onGenerateReviewExport={props.onGenerateReviewExport}
+          onPreviewWritebackHelper={props.onPreviewWritebackHelper}
         />
       );
     case "run":
@@ -1216,6 +1383,21 @@ function StoryPanel({
   setReviewExportFormat,
   reviewExportSections,
   setReviewExportSections,
+  writebackPreviewStatus,
+  writebackPreviewMessage,
+  writebackPreviewResult,
+  writebackHelperType,
+  setWritebackHelperType,
+  writebackUserNotes,
+  setWritebackUserNotes,
+  writebackTargetState,
+  setWritebackTargetState,
+  writebackAttachmentFileName,
+  setWritebackAttachmentFileName,
+  writebackAttachmentContentType,
+  setWritebackAttachmentContentType,
+  writebackAttachmentSizeBytes,
+  setWritebackAttachmentSizeBytes,
   draftInputs,
   setDraftInputs,
   selectedKnowledgeSourceIds,
@@ -1235,7 +1417,8 @@ function StoryPanel({
   onTestPlansCreationConfirmedChange,
   onCreateSelectedTestPlansCases,
   onMapAutomationCandidates,
-  onGenerateReviewExport
+  onGenerateReviewExport,
+  onPreviewWritebackHelper
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -1278,6 +1461,21 @@ function StoryPanel({
   setReviewExportFormat: (format: ReviewExportFormat) => void;
   reviewExportSections: ReviewExportSection[];
   setReviewExportSections: (sections: ReviewExportSection[]) => void;
+  writebackPreviewStatus: WritebackPreviewRequestStatus;
+  writebackPreviewMessage: string;
+  writebackPreviewResult: WritebackPreviewResult | null;
+  writebackHelperType: WritebackHelperType;
+  setWritebackHelperType: (helperType: WritebackHelperType) => void;
+  writebackUserNotes: string;
+  setWritebackUserNotes: (notes: string) => void;
+  writebackTargetState: string;
+  setWritebackTargetState: (targetState: string) => void;
+  writebackAttachmentFileName: string;
+  setWritebackAttachmentFileName: (fileName: string) => void;
+  writebackAttachmentContentType: string;
+  setWritebackAttachmentContentType: (contentType: string) => void;
+  writebackAttachmentSizeBytes: string;
+  setWritebackAttachmentSizeBytes: (sizeBytes: string) => void;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -1298,6 +1496,7 @@ function StoryPanel({
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
   onGenerateReviewExport: () => void;
+  onPreviewWritebackHelper: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -1411,6 +1610,34 @@ function StoryPanel({
               automationMappingResult
             })}
             onGenerate={onGenerateReviewExport}
+          />
+          <WritebackHelperCard
+            status={writebackPreviewStatus}
+            message={writebackPreviewMessage}
+            result={writebackPreviewResult}
+            helperType={writebackHelperType}
+            userNotes={writebackUserNotes}
+            targetState={writebackTargetState}
+            attachmentFileName={writebackAttachmentFileName}
+            attachmentContentType={writebackAttachmentContentType}
+            attachmentSizeBytes={writebackAttachmentSizeBytes}
+            canPreview={hasExportableStoryData({
+              workItemDetail: detail,
+              storyAnalysis: analysis,
+              aiAssistResult,
+              draftResult,
+              reviewSession,
+              testPlansReadiness,
+              testPlansCreationResult,
+              automationMappingResult
+            })}
+            onHelperTypeChange={setWritebackHelperType}
+            onUserNotesChange={setWritebackUserNotes}
+            onTargetStateChange={setWritebackTargetState}
+            onAttachmentFileNameChange={setWritebackAttachmentFileName}
+            onAttachmentContentTypeChange={setWritebackAttachmentContentType}
+            onAttachmentSizeBytesChange={setWritebackAttachmentSizeBytes}
+            onPreview={onPreviewWritebackHelper}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -2379,6 +2606,100 @@ function ReviewExportCard({
   );
 }
 
+function WritebackHelperCard({
+  status,
+  message,
+  result,
+  helperType,
+  userNotes,
+  targetState,
+  attachmentFileName,
+  attachmentContentType,
+  attachmentSizeBytes,
+  canPreview,
+  onHelperTypeChange,
+  onUserNotesChange,
+  onTargetStateChange,
+  onAttachmentFileNameChange,
+  onAttachmentContentTypeChange,
+  onAttachmentSizeBytesChange,
+  onPreview
+}: {
+  status: WritebackPreviewRequestStatus;
+  message: string;
+  result: WritebackPreviewResult | null;
+  helperType: WritebackHelperType;
+  userNotes: string;
+  targetState: string;
+  attachmentFileName: string;
+  attachmentContentType: string;
+  attachmentSizeBytes: string;
+  canPreview: boolean;
+  onHelperTypeChange: (helperType: WritebackHelperType) => void;
+  onUserNotesChange: (notes: string) => void;
+  onTargetStateChange: (targetState: string) => void;
+  onAttachmentFileNameChange: (fileName: string) => void;
+  onAttachmentContentTypeChange: (contentType: string) => void;
+  onAttachmentSizeBytesChange: (sizeBytes: string) => void;
+  onPreview: () => void;
+}) {
+  return (
+    <article className="info-card writeback-card">
+      <div className="card-row">
+        <h3>Write-back helpers</h3>
+        <span className={result?.status === "ready-for-review" ? "status-pill success" : result ? "status-pill warning" : "status-pill"}>
+          {result?.status ?? "Preview only"}
+        </span>
+      </div>
+      <p>Preview only - nothing will be written to Azure DevOps. Final submission is not implemented in this step.</p>
+      <SelectInput
+        label="Helper type"
+        value={helperType}
+        options={WRITEBACK_HELPER_OPTIONS.map((option) => ({ label: option.label, value: option.value }))}
+        placeholder="Select helper"
+        onChange={(value) => onHelperTypeChange(value as WritebackHelperType)}
+      />
+      <TextAreaInput
+        label="User notes"
+        value={userNotes}
+        placeholder="Add actual result, comment wording, or transition reason."
+        onChange={onUserNotesChange}
+      />
+      {helperType === "state-transition" ? (
+        <TextInput label="Target state" placeholder="Ready for UAT" value={targetState} onChange={onTargetStateChange} />
+      ) : null}
+      {helperType === "attachment-metadata" ? (
+        <>
+          <TextInput label="Attachment file name" placeholder="evidence-note.md" value={attachmentFileName} onChange={onAttachmentFileNameChange} />
+          <TextInput label="Attachment content type optional" placeholder="text/markdown" value={attachmentContentType} onChange={onAttachmentContentTypeChange} />
+          <TextInput label="Attachment size bytes optional" placeholder="2048" value={attachmentSizeBytes} onChange={onAttachmentSizeBytesChange} />
+        </>
+      ) : null}
+      <SecondaryAction
+        label={status === "loading" ? "Previewing helper..." : "Preview write-back helper"}
+        disabled={status === "loading" || !canPreview}
+        onClick={onPreview}
+      />
+      <InfoCard title="Helper status" body={message} tone={status === "error" ? "warning" : "neutral"} />
+      {result ? (
+        <div className="writeback-result">
+          <InfoGrid
+            items={[
+              ["Helper", result.helperType],
+              ["Status", result.status],
+              ["Warnings", String(result.warnings.length)]
+            ]}
+          />
+          <AnalysisList title="Warnings" items={result.warnings.map((warning) => `${warning.code}: ${warning.message}`)} />
+          <AnalysisList title="Required confirmations" items={result.requiredConfirmations} />
+          <pre className="preview-text">{JSON.stringify(result.preview, null, 2)}</pre>
+          <p className="trust-note">{result.disclaimer}</p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function TestCaseReviewEditor({
   draftCase,
   reviewCase,
@@ -2611,6 +2932,28 @@ function hasExportableStoryData(input: {
     || input.testPlansCreationResult
     || input.automationMappingResult
   );
+}
+
+function buildWritebackEvidence(
+  analysis: StoryRequirementAnalysis | null,
+  reviewSession: TestCaseReviewSession | null
+) {
+  const analysisEvidence = analysis?.evidence.slice(0, 4).map((item, index) => ({
+    id: `analysis-${index}`,
+    label: item.label,
+    summary: item.excerpt,
+    source: item.source
+  })) ?? [];
+  const reviewEvidence = reviewSession?.reviewedCases.flatMap((reviewCase) =>
+    reviewCase.evidenceLinks.slice(0, 2).map((link) => ({
+      id: `${reviewCase.originalDraftId}-${link.id}`,
+      label: link.label,
+      summary: link.excerpt,
+      source: link.source
+    }))
+  ).slice(0, 6) ?? [];
+
+  return [...analysisEvidence, ...reviewEvidence];
 }
 
 function SettingsPanel({

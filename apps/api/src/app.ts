@@ -15,6 +15,7 @@ import { registerTestCaseDraftRoutes } from "./routes/testCaseDraft.routes.js";
 import { registerTestCaseReviewRoutes } from "./routes/testCaseReview.routes.js";
 import { registerTestPlansCreationRoutes } from "./routes/testPlansCreation.routes.js";
 import { registerTestPlansReadinessRoutes } from "./routes/testPlansReadiness.routes.js";
+import { registerWritebackRoutes } from "./routes/writeback.routes.js";
 
 export type BuildAppOptions = {
   env?: ApiEnv;
@@ -41,6 +42,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerTestCaseReviewRoutes(app);
   await registerTestPlansReadinessRoutes(app);
   await registerTestPlansCreationRoutes(app, env);
+  await registerWritebackRoutes(app);
 
   return app;
 }

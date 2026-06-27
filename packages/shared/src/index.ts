@@ -24,3 +24,4 @@ export * from "./test-management/testManagementSettings.js";
 export * from "./test-management/testPlansReadiness.js";
 export * from "./work-items/workItemContext.js";
 export * from "./work-items/workItemDetail.js";
+export * from "./writeback/writebackHelper.js";

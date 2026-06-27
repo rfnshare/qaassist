@@ -30,7 +30,9 @@ import type {
   TestPlansReadinessRequest,
   TestPlansReadinessResult,
   WorkItemDetail,
-  WorkRecommendation
+  WorkRecommendation,
+  WritebackPreviewRequest,
+  WritebackPreviewResult
 } from "@qa-assist/shared";
 
 export type BoardSummaryPreviewResponse = {
@@ -132,6 +134,13 @@ export async function exportReviewPackage(
   input: ReviewExportRequest
 ): Promise<ReviewExportResult> {
   return postJson(apiBaseUrl, "/export/review-package", input);
+}
+
+export async function previewWritebackHelper(
+  apiBaseUrl: string,
+  input: WritebackPreviewRequest
+): Promise<WritebackPreviewResult> {
+  return postJson(apiBaseUrl, "/writeback/preview", input);
 }
 
 export async function fetchLlmProviderStatus(apiBaseUrl: string): Promise<LlmProviderConfigurationSummary> {

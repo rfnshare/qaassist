@@ -29,6 +29,7 @@ docs/prompts/0022-test-plans-explicit-creation-flow.md
 docs/prompts/0023-backend-llm-provider-adapter.md
 docs/prompts/0024-automation-candidate-mapping.md
 docs/prompts/0025-export-package-review-output.md
+docs/prompts/0026-story-bug-writeback-helpers.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -60,3 +61,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0023-backend-llm-provider-adapter`: optional backend-only LLM provider status and Story assist route, Settings provider status UI, and separate AI-assisted suggestions without extension secrets, mandatory LLM use, write-back, persistence, or deterministic flow replacement.
 - `0024-automation-candidate-mapping`: deterministic automation candidate mapping from validated reviewed cases with readiness, reasons, blockers, and planning-only UI without Playwright generation, repo writes, CI/CD changes, LLM calls, or persistence.
 - `0025-export-package-review-output`: portable Markdown/JSON review package export from selected current-session sections with trust labels and copy/download UI without external writes, secrets, LLM calls, repo writes, or persistence.
+- `0026-story-bug-writeback-helpers`: preview-only bug, comment, state transition, and attachment metadata helpers with warnings and required confirmations without Azure DevOps writes, LLM calls, secret handling, or persistence.

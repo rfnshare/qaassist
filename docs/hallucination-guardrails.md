@@ -32,4 +32,5 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Step 0023 LLM-assisted Story analysis is a separate suggestion layer on top of deterministic evidence. It must be labeled `llm-assisted`, keep deterministic analysis visible, avoid treating provider output as fact, and require QA confirmation.
 - Step 0024 automation mapping may suggest UI, API, mixed, or manual-only readiness from reviewed case evidence, but it must not claim a case has an automation script, framework coverage, or CI readiness. Reasons and blockers must stay visible and planning-only.
 - Step 0025 exports must preserve trust labels: deterministic evidence, AI-assisted suggestions, draft-only cases, reviewed local/session output, readiness preview-only output, explicit creation results, and automation planning-only output.
+- Step 0026 write-back helper previews must preserve uncertainty and warnings. A bug, comment, state transition, or attachment metadata preview is not a submitted Azure DevOps change and must require future explicit confirmation.
 - Test cases must not be treated as final outside Azure Test Plans until reviewed and confirmed by the QA user.

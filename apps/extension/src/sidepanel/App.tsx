@@ -21,6 +21,8 @@ import type {
   ReviewedTestCase,
   TestCaseDraft,
   TestCaseReviewSession,
+  TestPlansReadinessResult,
+  TestPlansTargetSettings,
   WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
@@ -35,6 +37,7 @@ import {
   generateTestCaseDrafts,
   listAzureTeams,
   normalizeReviewedTestCases,
+  previewTestPlansReadiness,
   summarizeBoardKnowledge,
   validateBoardKnowledgeSource
 } from "../api/qaAssistApiClient";
@@ -52,6 +55,7 @@ type StoryDetailStatus = "idle" | "loading" | "success" | "error";
 type StoryAnalysisStatus = "idle" | "loading" | "success" | "error";
 type DraftGenerationStatus = "idle" | "loading" | "success" | "error";
 type ReviewStatus = "idle" | "loading" | "success" | "error";
+type TestPlansReadinessStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -68,6 +72,10 @@ type ExtensionSettings = {
   iterationPath: string;
   currentQaUserDisplayName: string;
   currentQaUserEmail: string;
+  testPlanId: string;
+  testSuiteId: string;
+  testManagementAreaPath: string;
+  testManagementIterationPath: string;
   boardKnowledgeSources: BoardKnowledgeSource[];
 };
 
@@ -88,6 +96,10 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   iterationPath: "",
   currentQaUserDisplayName: "",
   currentQaUserEmail: "",
+  testPlanId: "",
+  testSuiteId: "",
+  testManagementAreaPath: "",
+  testManagementIterationPath: "",
   boardKnowledgeSources: []
 };
 
@@ -129,6 +141,9 @@ export function App() {
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>("idle");
   const [reviewMessage, setReviewMessage] = useState("Generate draft cases before review.");
   const [reviewSession, setReviewSession] = useState<TestCaseReviewSession | null>(null);
+  const [testPlansReadinessStatus, setTestPlansReadinessStatus] = useState<TestPlansReadinessStatus>("idle");
+  const [testPlansReadinessMessage, setTestPlansReadinessMessage] = useState("Validate review decisions before previewing Azure Test Plans readiness.");
+  const [testPlansReadiness, setTestPlansReadiness] = useState<TestPlansReadinessResult | null>(null);
   const [draftInputs, setDraftInputs] = useState<Required<TestCaseDraftSelectedInputs>>({
     includePositivePath: true,
     includeNegativePath: true,
@@ -186,10 +201,15 @@ export function App() {
     setDraftStatus("idle");
     setDraftMessage("Analyze requirements before drafting test cases.");
     resetTestCaseReviewState("Generate draft cases before review.");
+    resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     setSelectedKnowledgeSourceIds([]);
     setIncludeLatestExtraction(false);
     setUserConfirmedNote("");
   }, [pageContext?.organization, pageContext?.project, pageContext?.workItemId]);
+
+  useEffect(() => {
+    resetTestPlansReadiness("Test management target changed. Validate review decisions before previewing readiness.");
+  }, [settings.testPlanId, settings.testSuiteId, settings.testManagementAreaPath, settings.testManagementIterationPath]);
 
   useEffect(() => {
     function handleMessage(message: ExtensionMessage): void {
@@ -297,6 +317,7 @@ export function App() {
     setDraftStatus("idle");
     setDraftMessage("Analyze requirements before drafting test cases.");
     resetTestCaseReviewState("Generate draft cases before review.");
+    resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
 
     try {
       const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
@@ -351,6 +372,7 @@ export function App() {
       setDraftStatus("idle");
       setDraftMessage("Analysis is ready. Draft cases are still not generated.");
       resetTestCaseReviewState("Generate draft cases before review.");
+      resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     } catch (error) {
       setStoryAnalysis(null);
       setStoryAnalysisStatus("error");
@@ -359,6 +381,7 @@ export function App() {
       setDraftStatus("idle");
       setDraftMessage("Analyze requirements before drafting test cases.");
       resetTestCaseReviewState("Generate draft cases before review.");
+      resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     }
   }
 
@@ -367,6 +390,17 @@ export function App() {
     setReviewSession(null);
     setReviewStatus("idle");
     setReviewMessage(message);
+  }
+
+  function resetTestPlansReadiness(message: string): void {
+    setTestPlansReadiness(null);
+    setTestPlansReadinessStatus("idle");
+    setTestPlansReadinessMessage(message);
+  }
+
+  function updateReviewCases(nextReviewCases: ReviewedTestCase[]): void {
+    setReviewCases(nextReviewCases);
+    resetTestPlansReadiness("Review decisions changed. Validate review decisions before previewing Azure Test Plans readiness.");
   }
 
   async function generateDraftCases(): Promise<void> {
@@ -391,11 +425,13 @@ export function App() {
       setReviewSession(null);
       setReviewStatus("idle");
       setReviewMessage("Review generated drafts locally. Nothing is exported or written back.");
+      resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       setDraftStatus("success");
       setDraftMessage("Draft cases generated. QA review is required before use.");
     } catch (error) {
       setDraftResult(null);
       resetTestCaseReviewState("Generate draft cases before review.");
+      resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       setDraftStatus("error");
       setDraftMessage(error instanceof Error ? error.message : "Draft generation failed.");
     }
@@ -410,6 +446,7 @@ export function App() {
 
     setReviewStatus("loading");
     setReviewMessage("Validating local review decisions...");
+    resetTestPlansReadiness("Review validation is running. Preview readiness after validation succeeds.");
 
     try {
       const session = await normalizeReviewedTestCases(settings.apiBaseUrl, {
@@ -425,10 +462,44 @@ export function App() {
       setReviewCases(session.reviewedCases);
       setReviewStatus("success");
       setReviewMessage("Review decisions validated locally. Nothing was created in Azure Test Plans.");
+      resetTestPlansReadiness("Review decisions validated. Preview Azure Test Plans readiness when ready.");
     } catch (error) {
       setReviewSession(null);
       setReviewStatus("error");
       setReviewMessage(error instanceof Error ? error.message : "Review validation failed.");
+      resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+    }
+  }
+
+  async function previewAzureTestPlansReadiness(): Promise<void> {
+    if (!reviewSession) {
+      setTestPlansReadinessStatus("error");
+      setTestPlansReadinessMessage("Validate review decisions before previewing Azure Test Plans readiness.");
+      return;
+    }
+
+    if (!hasSelectedTeamBoard(settings)) {
+      setTestPlansReadinessStatus("error");
+      setTestPlansReadinessMessage("Select a team board before previewing Azure Test Plans readiness.");
+      return;
+    }
+
+    setTestPlansReadinessStatus("loading");
+    setTestPlansReadinessMessage("Building readiness preview. Nothing will be created in Azure.");
+
+    try {
+      const result = await previewTestPlansReadiness(settings.apiBaseUrl, {
+        reviewSession,
+        targetSettings: buildTestPlansTargetSettings(settings)
+      });
+
+      setTestPlansReadiness(result);
+      setTestPlansReadinessStatus("success");
+      setTestPlansReadinessMessage("Readiness preview generated. Nothing was created or updated in Azure Test Plans.");
+    } catch (error) {
+      setTestPlansReadiness(null);
+      setTestPlansReadinessStatus("error");
+      setTestPlansReadinessMessage(error instanceof Error ? error.message : "Azure Test Plans readiness preview failed.");
     }
   }
 
@@ -471,10 +542,13 @@ export function App() {
           draftMessage,
           draftResult,
           reviewCases,
-          setReviewCases,
+          setReviewCases: updateReviewCases,
           reviewStatus,
           reviewMessage,
           reviewSession,
+          testPlansReadinessStatus,
+          testPlansReadinessMessage,
+          testPlansReadiness,
           draftInputs,
           setDraftInputs,
           selectedKnowledgeSourceIds,
@@ -489,6 +563,7 @@ export function App() {
           onAnalyzeStory: analyzeStory,
           onGenerateDraftCases: generateDraftCases,
           onValidateReviewDecisions: validateReviewDecisions,
+          onPreviewTestPlansReadiness: previewAzureTestPlansReadiness,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -534,6 +609,9 @@ function renderPanel(props: {
   reviewStatus: ReviewStatus;
   reviewMessage: string;
   reviewSession: TestCaseReviewSession | null;
+  testPlansReadinessStatus: TestPlansReadinessStatus;
+  testPlansReadinessMessage: string;
+  testPlansReadiness: TestPlansReadinessResult | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -548,6 +626,7 @@ function renderPanel(props: {
   onAnalyzeStory: () => void;
   onGenerateDraftCases: () => void;
   onValidateReviewDecisions: () => void;
+  onPreviewTestPlansReadiness: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -586,6 +665,9 @@ function renderPanel(props: {
           reviewStatus={props.reviewStatus}
           reviewMessage={props.reviewMessage}
           reviewSession={props.reviewSession}
+          testPlansReadinessStatus={props.testPlansReadinessStatus}
+          testPlansReadinessMessage={props.testPlansReadinessMessage}
+          testPlansReadiness={props.testPlansReadiness}
           draftInputs={props.draftInputs}
           setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
@@ -599,6 +681,7 @@ function renderPanel(props: {
           onAnalyzeStory={props.onAnalyzeStory}
           onGenerateDraftCases={props.onGenerateDraftCases}
           onValidateReviewDecisions={props.onValidateReviewDecisions}
+          onPreviewTestPlansReadiness={props.onPreviewTestPlansReadiness}
         />
       );
     case "run":
@@ -715,6 +798,9 @@ function StoryPanel({
   reviewStatus,
   reviewMessage,
   reviewSession,
+  testPlansReadinessStatus,
+  testPlansReadinessMessage,
+  testPlansReadiness,
   draftInputs,
   setDraftInputs,
   selectedKnowledgeSourceIds,
@@ -727,7 +813,8 @@ function StoryPanel({
   onFetchStoryDetail,
   onAnalyzeStory,
   onGenerateDraftCases,
-  onValidateReviewDecisions
+  onValidateReviewDecisions,
+  onPreviewTestPlansReadiness
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -746,6 +833,9 @@ function StoryPanel({
   reviewStatus: ReviewStatus;
   reviewMessage: string;
   reviewSession: TestCaseReviewSession | null;
+  testPlansReadinessStatus: TestPlansReadinessStatus;
+  testPlansReadinessMessage: string;
+  testPlansReadiness: TestPlansReadinessResult | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -759,6 +849,7 @@ function StoryPanel({
   onAnalyzeStory: () => void;
   onGenerateDraftCases: () => void;
   onValidateReviewDecisions: () => void;
+  onPreviewTestPlansReadiness: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -825,10 +916,14 @@ function StoryPanel({
             reviewStatus={reviewStatus}
             reviewMessage={reviewMessage}
             reviewSession={reviewSession}
+            testPlansReadinessStatus={testPlansReadinessStatus}
+            testPlansReadinessMessage={testPlansReadinessMessage}
+            testPlansReadiness={testPlansReadiness}
             inputs={draftInputs}
             onInputsChange={setDraftInputs}
             onGenerate={onGenerateDraftCases}
             onValidateReviewDecisions={onValidateReviewDecisions}
+            onPreviewTestPlansReadiness={onPreviewTestPlansReadiness}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -1070,10 +1165,14 @@ function TestCaseDraftCard({
   reviewStatus,
   reviewMessage,
   reviewSession,
+  testPlansReadinessStatus,
+  testPlansReadinessMessage,
+  testPlansReadiness,
   inputs,
   onInputsChange,
   onGenerate,
-  onValidateReviewDecisions
+  onValidateReviewDecisions,
+  onPreviewTestPlansReadiness
 }: {
   analysis: StoryRequirementAnalysis | null;
   status: DraftGenerationStatus;
@@ -1084,10 +1183,14 @@ function TestCaseDraftCard({
   reviewStatus: ReviewStatus;
   reviewMessage: string;
   reviewSession: TestCaseReviewSession | null;
+  testPlansReadinessStatus: TestPlansReadinessStatus;
+  testPlansReadinessMessage: string;
+  testPlansReadiness: TestPlansReadinessResult | null;
   inputs: Required<TestCaseDraftSelectedInputs>;
   onInputsChange: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   onGenerate: () => void;
   onValidateReviewDecisions: () => void;
+  onPreviewTestPlansReadiness: () => void;
 }) {
   function toggleInput(key: keyof Required<TestCaseDraftSelectedInputs>): void {
     onInputsChange({ ...inputs, [key]: !inputs[key] });
@@ -1121,6 +1224,10 @@ function TestCaseDraftCard({
           reviewMessage={reviewMessage}
           reviewSession={reviewSession}
           onValidateReviewDecisions={onValidateReviewDecisions}
+          readinessStatus={testPlansReadinessStatus}
+          readinessMessage={testPlansReadinessMessage}
+          readiness={testPlansReadiness}
+          onPreviewReadiness={onPreviewTestPlansReadiness}
         />
       ) : null}
     </article>
@@ -1145,7 +1252,11 @@ function TestCaseDraftResult({
   reviewStatus,
   reviewMessage,
   reviewSession,
-  onValidateReviewDecisions
+  onValidateReviewDecisions,
+  readinessStatus,
+  readinessMessage,
+  readiness,
+  onPreviewReadiness
 }: {
   result: TestCaseDraftGenerationResult;
   reviewCases: ReviewedTestCase[];
@@ -1154,6 +1265,10 @@ function TestCaseDraftResult({
   reviewMessage: string;
   reviewSession: TestCaseReviewSession | null;
   onValidateReviewDecisions: () => void;
+  readinessStatus: TestPlansReadinessStatus;
+  readinessMessage: string;
+  readiness: TestPlansReadinessResult | null;
+  onPreviewReadiness: () => void;
 }) {
   const summary = reviewSession?.summary ?? buildLocalReviewSummary(reviewCases, result.draftCases.length);
 
@@ -1201,6 +1316,15 @@ function TestCaseDraftResult({
         <InfoCard title="Review status" body={reviewMessage} tone={reviewStatus === "error" ? "warning" : "neutral"} />
         <AnalysisList title="Review warnings" items={summary.warnings} />
       </article>
+      {reviewSession ? (
+        <TestPlansReadinessCard
+          reviewSession={reviewSession}
+          status={readinessStatus}
+          message={readinessMessage}
+          readiness={readiness}
+          onPreview={onPreviewReadiness}
+        />
+      ) : null}
       <div className="draft-list">
         {result.draftCases.map((draftCase) => (
           <TestCaseReviewEditor
@@ -1212,6 +1336,100 @@ function TestCaseDraftResult({
         ))}
       </div>
       <p className="trust-note">{reviewSession?.disclaimer ?? result.disclaimer}</p>
+    </div>
+  );
+}
+
+function TestPlansReadinessCard({
+  reviewSession,
+  status,
+  message,
+  readiness,
+  onPreview
+}: {
+  reviewSession: TestCaseReviewSession;
+  status: TestPlansReadinessStatus;
+  message: string;
+  readiness: TestPlansReadinessResult | null;
+  onPreview: () => void;
+}) {
+  const hasReadyCases = reviewSession.summary.readyForExport > 0;
+
+  return (
+    <article className="info-card readiness-card">
+      <div className="card-row">
+        <h4>Azure Test Plans readiness preview</h4>
+        <span className={readiness?.status === "ready-for-confirmation" ? "status-pill success" : readiness?.status === "blocked" ? "status-pill warning" : "status-pill"}>
+          {readiness?.status ?? "Preview only"}
+        </span>
+      </div>
+      <p>Preview only - nothing will be created in Azure.</p>
+      <p>Actual Azure Test Plans creation is not implemented yet. Approved for export means eligible for a future final confirmation step.</p>
+      <SecondaryAction
+        label={status === "loading" ? "Previewing readiness..." : "Preview Test Plans readiness"}
+        disabled={status === "loading" || !hasReadyCases}
+        onClick={onPreview}
+      />
+      <InfoCard
+        title="Readiness status"
+        body={hasReadyCases ? message : "Approve and validate at least one reviewed case before previewing Azure Test Plans readiness."}
+        tone={status === "error" || !hasReadyCases ? "warning" : "neutral"}
+      />
+      {readiness ? (
+        <div className="readiness-result">
+          <InfoGrid
+            items={[
+              ["Mode", readiness.mode],
+              ["Generated", formatDateTime(readiness.generatedAt)],
+              ["Target", `${readiness.target.organization}/${readiness.target.project}/${readiness.target.team}`],
+              ["Plan/Suite", `${formatOptionalValue(readiness.target.testPlanId)} / ${formatOptionalValue(readiness.target.testSuiteId)}`]
+            ]}
+          />
+          <ReadinessCandidateList candidates={readiness.candidates} />
+          <ReadinessBlockedList blockedItems={readiness.blockedItems} />
+          <AnalysisList title="Warnings" items={readiness.warnings.map((warning) => `${warning.code}: ${warning.message}`)} />
+          <AnalysisList title="Required future confirmations" items={readiness.requiredUserConfirmations} />
+          <p className="trust-note">{readiness.disclaimer}</p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function ReadinessCandidateList({ candidates }: { candidates: TestPlansReadinessResult["candidates"] }) {
+  if (candidates.length === 0) {
+    return <AnalysisList title="Export candidates" items={[]} />;
+  }
+
+  return (
+    <div className="analysis-list readiness-list">
+      <span>Export candidates</span>
+      <ul>
+        {candidates.map((candidate) => (
+          <li key={candidate.originalDraftId}>
+            {candidate.title} ({candidate.stepsCount} steps, {candidate.evidenceLinkCount} evidence links)
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ReadinessBlockedList({ blockedItems }: { blockedItems: TestPlansReadinessResult["blockedItems"] }) {
+  if (blockedItems.length === 0) {
+    return <AnalysisList title="Blocked items" items={[]} />;
+  }
+
+  return (
+    <div className="analysis-list readiness-list">
+      <span>Blocked items</span>
+      <ul>
+        {blockedItems.map((item) => (
+          <li key={item.originalDraftId}>
+            {item.title} ({item.status}): {item.reasons.join(" ")}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -1604,11 +1822,36 @@ function SettingsPanel({
       <SettingsCard title="Test Management" body="Azure Test Plans is first, but no test case write-back is active yet.">
         <InfoGrid
           items={[
-            ["Destination", "Test plan and suite selection placeholder."],
+            ["Destination", "Test plan and suite IDs are non-secret local configuration."],
             ["Story links", "Approved test cases can later link back to the story."],
-            ["Approval", "Creating or updating test cases will require explicit user approval."]
+            ["Approval", "Creating or updating test cases will require explicit final user approval."]
           ]}
         />
+        <div className="settings-form">
+          <TextInput
+            label="Azure Test Plan ID optional"
+            help="Non-secret target ID for readiness preview only. No Azure Test Plans write-back is active."
+            value={settings.testPlanId}
+            onChange={(value) => updateSetting("testPlanId", value)}
+          />
+          <TextInput
+            label="Azure Test Suite ID optional"
+            help="Non-secret target ID for readiness preview only."
+            value={settings.testSuiteId}
+            onChange={(value) => updateSetting("testSuiteId", value)}
+          />
+          <TextInput
+            label="Default area path optional"
+            value={settings.testManagementAreaPath}
+            onChange={(value) => updateSetting("testManagementAreaPath", value)}
+          />
+          <TextInput
+            label="Default iteration path optional"
+            value={settings.testManagementIterationPath}
+            onChange={(value) => updateSetting("testManagementIterationPath", value)}
+          />
+        </div>
+        <TrustNote text="These fields are not secrets. They only help QA Assist preview future Azure Test Plans readiness; nothing is created in Azure." />
       </SettingsCard>
       <BoardKnowledgeSettingsCard
         settings={settings}
@@ -2288,6 +2531,18 @@ function buildBoardScope(settings: ExtensionSettings): BoardScope {
     team: normalizeOptional(settings.team),
     board: normalizeOptional(settings.board),
     iterationPath: normalizeOptional(settings.iterationPath)
+  };
+}
+
+function buildTestPlansTargetSettings(settings: ExtensionSettings): TestPlansTargetSettings {
+  return {
+    organization: settings.organization.trim(),
+    project: settings.project.trim(),
+    team: settings.team.trim(),
+    testPlanId: normalizeOptional(settings.testPlanId),
+    testSuiteId: normalizeOptional(settings.testSuiteId),
+    areaPath: normalizeOptional(settings.testManagementAreaPath),
+    iterationPath: normalizeOptional(settings.testManagementIterationPath)
   };
 }
 

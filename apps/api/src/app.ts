@@ -10,6 +10,7 @@ import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerKnowledgeRoutes } from "./routes/knowledge.routes.js";
 import { registerTestCaseDraftRoutes } from "./routes/testCaseDraft.routes.js";
 import { registerTestCaseReviewRoutes } from "./routes/testCaseReview.routes.js";
+import { registerTestPlansReadinessRoutes } from "./routes/testPlansReadiness.routes.js";
 
 export type BuildAppOptions = {
   env?: ApiEnv;
@@ -31,6 +32,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerKnowledgeRoutes(app);
   await registerTestCaseDraftRoutes(app);
   await registerTestCaseReviewRoutes(app);
+  await registerTestPlansReadinessRoutes(app);
 
   return app;
 }

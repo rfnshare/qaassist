@@ -17,5 +17,6 @@ export * from "./settings/currentQaUser.js";
 export * from "./test-cases/testCaseDraft.js";
 export * from "./test-cases/testCaseReview.js";
 export * from "./test-management/testManagementSettings.js";
+export * from "./test-management/testPlansReadiness.js";
 export * from "./work-items/workItemContext.js";
 export * from "./work-items/workItemDetail.js";

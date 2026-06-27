@@ -18,6 +18,8 @@ import type {
   TestCaseDraftGenerationResult,
   TestCaseReviewNormalizationRequest,
   TestCaseReviewNormalizationResult,
+  TestPlansReadinessRequest,
+  TestPlansReadinessResult,
   WorkItemDetail,
   WorkRecommendation
 } from "@qa-assist/shared";
@@ -93,6 +95,13 @@ export async function normalizeReviewedTestCases(
   input: TestCaseReviewNormalizationRequest
 ): Promise<TestCaseReviewNormalizationResult> {
   return postJson(apiBaseUrl, "/test-cases/review/normalize", input);
+}
+
+export async function previewTestPlansReadiness(
+  apiBaseUrl: string,
+  input: TestPlansReadinessRequest
+): Promise<TestPlansReadinessResult> {
+  return postJson(apiBaseUrl, "/test-plans/readiness/preview", input);
 }
 
 export async function validateBoardKnowledgeSource(

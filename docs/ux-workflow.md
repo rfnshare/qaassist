@@ -33,6 +33,8 @@ Step 0019 adds deterministic draft test case generation after Story analysis. Dr
 
 Step 0020 adds a local/session review workflow for generated drafts. QA can edit title, objective, steps, expected result, and reviewer note, then explicitly approve for later export, reject, or block each draft. Approval means ready for a future export flow only; it does not create Azure Test Plans items, save to a database, or write back to Azure. Evidence links and warnings remain visible during review.
 
+Step 0021 adds an Azure Test Plans readiness preview after review validation. The Story tab can show eligible candidates, blocked items, missing non-secret plan/suite settings, required future confirmations, and a clear disclaimer. The UI must not show Create, Export, Send to Azure, or any equivalent write-back action in this step.
+
 ## Setup Flow
 
 Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.

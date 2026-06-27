@@ -14,7 +14,9 @@ import type {
   BoardSummary,
   CurrentQaUserSettings,
   KnowledgeExtractionResult,
+  LlmProviderConfigurationSummary,
   StoryLinkedKnowledgeEvidence,
+  StoryAnalysisAssistResult,
   StoryRequirementAnalysis,
   TestCaseDraftGenerationResult,
   TestCaseDraftSelectedInputs,
@@ -35,11 +37,13 @@ import {
   extractBoardKnowledgeText,
   fetchBoardSummaryPreview,
   fetchWorkItemDetail,
+  fetchLlmProviderStatus,
   generateBoardBriefing,
   generateTestCaseDrafts,
   listAzureTeams,
   normalizeReviewedTestCases,
   previewTestPlansReadiness,
+  requestStoryAnalysisAssist,
   summarizeBoardKnowledge,
   validateBoardKnowledgeSource
 } from "../api/qaAssistApiClient";
@@ -55,6 +59,7 @@ type FetchStatus = "idle" | "loading" | "success" | "error";
 type BriefingStatus = "idle" | "loading" | "success" | "error";
 type StoryDetailStatus = "idle" | "loading" | "success" | "error";
 type StoryAnalysisStatus = "idle" | "loading" | "success" | "error";
+type AiAssistStatus = "idle" | "loading" | "success" | "error";
 type DraftGenerationStatus = "idle" | "loading" | "success" | "error";
 type ReviewStatus = "idle" | "loading" | "success" | "error";
 type TestPlansReadinessStatus = "idle" | "loading" | "success" | "error";
@@ -137,6 +142,11 @@ export function App() {
   const [storyAnalysisStatus, setStoryAnalysisStatus] = useState<StoryAnalysisStatus>("idle");
   const [storyAnalysisMessage, setStoryAnalysisMessage] = useState<string>("Fetch story details first.");
   const [storyAnalysis, setStoryAnalysis] = useState<StoryRequirementAnalysis | null>(null);
+  const [llmProviderStatus, setLlmProviderStatus] = useState<LlmProviderConfigurationSummary | null>(null);
+  const [llmProviderMessage, setLlmProviderMessage] = useState("AI provider status has not been checked yet.");
+  const [aiAssistStatus, setAiAssistStatus] = useState<AiAssistStatus>("idle");
+  const [aiAssistMessage, setAiAssistMessage] = useState("Run deterministic Story analysis first.");
+  const [aiAssistResult, setAiAssistResult] = useState<StoryAnalysisAssistResult | null>(null);
   const [draftStatus, setDraftStatus] = useState<DraftGenerationStatus>("idle");
   const [draftMessage, setDraftMessage] = useState("Analyze requirements before drafting test cases.");
   const [draftResult, setDraftResult] = useState<TestCaseDraftGenerationResult | null>(null);
@@ -199,12 +209,36 @@ export function App() {
   }, [settings]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadProviderStatus(): Promise<void> {
+      try {
+        const status = await fetchLlmProviderStatus(settings.apiBaseUrl);
+        if (cancelled) return;
+        setLlmProviderStatus(status);
+        setLlmProviderMessage(formatProviderStatusMessage(status));
+      } catch (error) {
+        if (cancelled) return;
+        setLlmProviderStatus(null);
+        setLlmProviderMessage(error instanceof Error ? error.message : "AI provider status could not be loaded.");
+      }
+    }
+
+    void loadProviderStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.apiBaseUrl]);
+
+  useEffect(() => {
     setWorkItemDetail(null);
     setStoryDetailStatus("idle");
     setStoryDetailMessage(pageContext ? "Fetch story details to begin." : "Open an Azure DevOps work item and fetch details.");
     setStoryAnalysis(null);
     setStoryAnalysisStatus("idle");
     setStoryAnalysisMessage("Fetch story details first.");
+    resetAiAssist("Run deterministic Story analysis first.");
     setDraftResult(null);
     setDraftStatus("idle");
     setDraftMessage("Analyze requirements before drafting test cases.");
@@ -322,6 +356,7 @@ export function App() {
     setStoryAnalysis(null);
     setStoryAnalysisStatus("idle");
     setStoryAnalysisMessage("Fetch story details first.");
+    resetAiAssist("Run deterministic Story analysis first.");
     setDraftResult(null);
     setDraftStatus("idle");
     setDraftMessage("Analyze requirements before drafting test cases.");
@@ -377,6 +412,7 @@ export function App() {
       setStoryAnalysis(analysis);
       setStoryAnalysisStatus("success");
       setStoryAnalysisMessage("Evidence-bound preview analysis is ready.");
+      resetAiAssist("Deterministic analysis is ready. Request AI assist only if the backend provider is available.");
       setDraftResult(null);
       setDraftStatus("idle");
       setDraftMessage("Analysis is ready. Draft cases are still not generated.");
@@ -386,6 +422,7 @@ export function App() {
       setStoryAnalysis(null);
       setStoryAnalysisStatus("error");
       setStoryAnalysisMessage(error instanceof Error ? error.message : "Requirement analysis failed.");
+      resetAiAssist("Run deterministic Story analysis first.");
       setDraftResult(null);
       setDraftStatus("idle");
       setDraftMessage("Analyze requirements before drafting test cases.");
@@ -399,6 +436,43 @@ export function App() {
     setReviewSession(null);
     setReviewStatus("idle");
     setReviewMessage(message);
+  }
+
+  function resetAiAssist(message: string): void {
+    setAiAssistResult(null);
+    setAiAssistStatus("idle");
+    setAiAssistMessage(message);
+  }
+
+  async function requestAiAssist(): Promise<void> {
+    if (!workItemDetail || !storyAnalysis) {
+      setAiAssistStatus("error");
+      setAiAssistMessage("Run deterministic Story analysis first.");
+      return;
+    }
+
+    if (llmProviderStatus?.availability !== "available") {
+      setAiAssistStatus("error");
+      setAiAssistMessage(llmProviderStatus?.reason ?? "AI provider is disabled or misconfigured on the backend.");
+      return;
+    }
+
+    setAiAssistStatus("loading");
+    setAiAssistMessage("Requesting backend-mediated AI suggestions...");
+
+    try {
+      const result = await requestStoryAnalysisAssist(settings.apiBaseUrl, {
+        workItem: workItemDetail,
+        deterministicAnalysis: storyAnalysis
+      });
+      setAiAssistResult(result);
+      setAiAssistStatus("success");
+      setAiAssistMessage("AI-assisted suggestions returned. QA review is required.");
+    } catch (error) {
+      setAiAssistResult(null);
+      setAiAssistStatus("error");
+      setAiAssistMessage(error instanceof Error ? error.message : "AI assist request failed.");
+    }
   }
 
   function resetTestPlansReadiness(message: string): void {
@@ -613,6 +687,11 @@ export function App() {
           storyAnalysisStatus,
           storyAnalysisMessage,
           storyAnalysis,
+          llmProviderStatus,
+          llmProviderMessage,
+          aiAssistStatus,
+          aiAssistMessage,
+          aiAssistResult,
           draftStatus,
           draftMessage,
           draftResult,
@@ -641,6 +720,7 @@ export function App() {
           setLatestExtractionResult,
           onFetchStoryDetail: fetchStoryDetail,
           onAnalyzeStory: analyzeStory,
+          onRequestAiAssist: requestAiAssist,
           onGenerateDraftCases: generateDraftCases,
           onValidateReviewDecisions: validateReviewDecisions,
           onPreviewTestPlansReadiness: previewAzureTestPlansReadiness,
@@ -684,6 +764,11 @@ function renderPanel(props: {
   storyAnalysisStatus: StoryAnalysisStatus;
   storyAnalysisMessage: string;
   storyAnalysis: StoryRequirementAnalysis | null;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
+  llmProviderMessage: string;
+  aiAssistStatus: AiAssistStatus;
+  aiAssistMessage: string;
+  aiAssistResult: StoryAnalysisAssistResult | null;
   draftStatus: DraftGenerationStatus;
   draftMessage: string;
   draftResult: TestCaseDraftGenerationResult | null;
@@ -712,6 +797,7 @@ function renderPanel(props: {
   setLatestExtractionResult: (result: KnowledgeExtractionResult | null) => void;
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
+  onRequestAiAssist: () => void;
   onGenerateDraftCases: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
@@ -748,6 +834,10 @@ function renderPanel(props: {
           analysis={props.storyAnalysis}
           analysisStatus={props.storyAnalysisStatus}
           analysisMessage={props.storyAnalysisMessage}
+          llmProviderStatus={props.llmProviderStatus}
+          aiAssistStatus={props.aiAssistStatus}
+          aiAssistMessage={props.aiAssistMessage}
+          aiAssistResult={props.aiAssistResult}
           draftStatus={props.draftStatus}
           draftMessage={props.draftMessage}
           draftResult={props.draftResult}
@@ -775,6 +865,7 @@ function renderPanel(props: {
           latestExtractionResult={props.latestExtractionResult}
           onFetchStoryDetail={props.onFetchStoryDetail}
           onAnalyzeStory={props.onAnalyzeStory}
+          onRequestAiAssist={props.onRequestAiAssist}
           onGenerateDraftCases={props.onGenerateDraftCases}
           onValidateReviewDecisions={props.onValidateReviewDecisions}
           onPreviewTestPlansReadiness={props.onPreviewTestPlansReadiness}
@@ -794,6 +885,8 @@ function renderPanel(props: {
           onSettingsChange={props.setSettings}
           setupStatus={props.setupStatus}
           setupMessage={props.setupMessage}
+          llmProviderStatus={props.llmProviderStatus}
+          llmProviderMessage={props.llmProviderMessage}
           onSetupStatusChange={props.setSetupStatus}
           onSetupMessageChange={props.setSetupMessage}
           projectOptions={props.projectOptions}
@@ -889,6 +982,10 @@ function StoryPanel({
   analysis,
   analysisStatus,
   analysisMessage,
+  llmProviderStatus,
+  aiAssistStatus,
+  aiAssistMessage,
+  aiAssistResult,
   draftStatus,
   draftMessage,
   draftResult,
@@ -916,6 +1013,7 @@ function StoryPanel({
   latestExtractionResult,
   onFetchStoryDetail,
   onAnalyzeStory,
+  onRequestAiAssist,
   onGenerateDraftCases,
   onValidateReviewDecisions,
   onPreviewTestPlansReadiness,
@@ -932,6 +1030,10 @@ function StoryPanel({
   analysis: StoryRequirementAnalysis | null;
   analysisStatus: StoryAnalysisStatus;
   analysisMessage: string;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
+  aiAssistStatus: AiAssistStatus;
+  aiAssistMessage: string;
+  aiAssistResult: StoryAnalysisAssistResult | null;
   draftStatus: DraftGenerationStatus;
   draftMessage: string;
   draftResult: TestCaseDraftGenerationResult | null;
@@ -959,6 +1061,7 @@ function StoryPanel({
   latestExtractionResult: KnowledgeExtractionResult | null;
   onFetchStoryDetail: () => void;
   onAnalyzeStory: () => void;
+  onRequestAiAssist: () => void;
   onGenerateDraftCases: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
@@ -1019,7 +1122,12 @@ function StoryPanel({
             status={analysisStatus}
             message={analysisMessage}
             canAnalyze={Boolean(detail)}
+            llmProviderStatus={llmProviderStatus}
+            aiAssistStatus={aiAssistStatus}
+            aiAssistMessage={aiAssistMessage}
+            aiAssistResult={aiAssistResult}
             onAnalyze={onAnalyzeStory}
+            onRequestAiAssist={onRequestAiAssist}
           />
           <TestCaseDraftCard
             analysis={analysis}
@@ -1224,14 +1332,26 @@ function StoryAnalysisCard({
   status,
   message,
   canAnalyze,
-  onAnalyze
+  llmProviderStatus,
+  aiAssistStatus,
+  aiAssistMessage,
+  aiAssistResult,
+  onAnalyze,
+  onRequestAiAssist
 }: {
   analysis: StoryRequirementAnalysis | null;
   status: StoryAnalysisStatus;
   message: string;
   canAnalyze: boolean;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
+  aiAssistStatus: AiAssistStatus;
+  aiAssistMessage: string;
+  aiAssistResult: StoryAnalysisAssistResult | null;
   onAnalyze: () => void;
+  onRequestAiAssist: () => void;
 }) {
+  const providerAvailable = llmProviderStatus?.availability === "available";
+
   return (
     <article className="info-card analysis-card">
       <div className="card-row">
@@ -1244,8 +1364,50 @@ function StoryAnalysisCard({
         disabled={!canAnalyze || status === "loading"}
         onClick={onAnalyze}
       />
-      {analysis ? <StoryAnalysisResult analysis={analysis} /> : <p className="analysis-empty">Fetch story details first. Test case draft not generated yet.</p>}
+      {analysis ? (
+        <>
+          <StoryAnalysisResult analysis={analysis} />
+          <article className="info-card ai-assist-card">
+            <div className="card-row">
+              <h3>AI-assisted suggestions</h3>
+              <span className={providerAvailable ? "status-pill success" : "status-pill"}>
+                {llmProviderStatus?.availability ?? "unknown"}
+              </span>
+            </div>
+            <p>{aiAssistMessage}</p>
+            <SecondaryAction
+              label={aiAssistStatus === "loading" ? "Requesting AI assist..." : "Request AI assist"}
+              disabled={!analysis || aiAssistStatus === "loading" || !providerAvailable}
+              onClick={onRequestAiAssist}
+            />
+            {!providerAvailable ? (
+              <p className="trust-note">{llmProviderStatus?.reason ?? "AI provider is disabled or misconfigured on the backend. Deterministic mode remains available."}</p>
+            ) : null}
+            {aiAssistResult ? <AiAssistResultView result={aiAssistResult} /> : null}
+          </article>
+        </>
+      ) : <p className="analysis-empty">Fetch story details first. Test case draft not generated yet.</p>}
     </article>
+  );
+}
+
+function AiAssistResultView({ result }: { result: StoryAnalysisAssistResult }) {
+  return (
+    <div className="analysis-body">
+      <InfoGrid
+        items={[
+          ["Mode", result.mode],
+          ["Provider", result.provider.provider],
+          ["Model", result.provider.model ?? "Not returned"],
+          ["Generated", formatDateTime(result.generatedAt)]
+        ]}
+      />
+      <AnalysisList title="Summary suggestion" items={[`${result.suggestedRequirementSummary.text} (${result.suggestedRequirementSummary.certainty})`]} />
+      <AnalysisList title="Suggested gaps/questions" items={result.suggestedGapsOrQuestions.map(formatAssistSuggestion)} />
+      <AnalysisList title="Suggested likely test areas" items={result.suggestedLikelyTestAreas.map(formatAssistSuggestion)} />
+      <AnalysisList title="AI warnings" items={result.warnings} />
+      <p className="trust-note">{result.disclaimer}</p>
+    </div>
   );
 }
 
@@ -1876,6 +2038,18 @@ function formatAnalysisItem(item: { text: string; severity: string; certainty: s
   return `${item.text} (${item.severity}, ${item.certainty})`;
 }
 
+function formatAssistSuggestion(item: { text: string; certainty: string }): string {
+  return `${item.text} (${item.certainty})`;
+}
+
+function formatProviderStatusMessage(status: LlmProviderConfigurationSummary): string {
+  if (status.availability === "available") {
+    return `${status.provider} is available from the backend. Deterministic mode remains the default.`;
+  }
+
+  return status.reason ?? "AI provider is disabled or misconfigured on the backend. Deterministic mode remains available.";
+}
+
 function formatLinkedEvidenceItem(item: StoryLinkedKnowledgeEvidence): string {
   return `${item.title} (${item.kind}, ${item.certainty}) - ${item.evidenceLabel}`;
 }
@@ -1927,6 +2101,8 @@ function SettingsPanel({
   onSettingsChange,
   setupStatus,
   setupMessage,
+  llmProviderStatus,
+  llmProviderMessage,
   onSetupStatusChange,
   onSetupMessageChange,
   projectOptions,
@@ -1941,6 +2117,8 @@ function SettingsPanel({
   onSettingsChange: (settings: ExtensionSettings) => void;
   setupStatus: SetupStatus;
   setupMessage: string;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
+  llmProviderMessage: string;
   onSetupStatusChange: (status: SetupStatus) => void;
   onSetupMessageChange: (message: string) => void;
   projectOptions: AzureDevOpsProjectOption[];
@@ -2145,14 +2323,21 @@ function SettingsPanel({
         onSettingsChange={onSettingsChange}
         onLatestExtractionResult={onLatestExtractionResult}
       />
-      <SettingsCard title="AI Analysis" body="AI support will be backend-mediated and evidence-bound. No LLM calls are active yet.">
+      <SettingsCard
+        title="AI Analysis"
+        status={<span className={llmProviderStatus?.availability === "available" ? "status-pill success" : llmProviderStatus?.availability === "misconfigured" ? "status-pill warning" : "status-pill"}>{llmProviderStatus?.availability ?? "unknown"}</span>}
+        body="AI support is optional, backend-mediated, and suggestion-only. Deterministic mode remains the default."
+      >
         <InfoGrid
           items={[
-            ["AI board briefing", "Will explain what changed, what needs QA attention, and why."],
-            ["Story requirement analysis", "Will label source-backed, assumption, and needs confirmation output."],
-            ["Guardrails", "Unverified output must never be treated as fact."]
+            ["Provider", llmProviderStatus?.provider ?? "Unknown"],
+            ["Model", llmProviderStatus?.model ?? "Not configured"],
+            ["Backend API key", llmProviderStatus?.apiKeyConfigured ? "Configured on backend" : "Not configured"],
+            ["Base URL", llmProviderStatus?.baseUrlConfigured ? "Configured on backend" : "Default or not configured"]
           ]}
         />
+        <InfoCard title="Provider status" body={llmProviderMessage} tone={llmProviderStatus?.availability === "misconfigured" ? "warning" : "neutral"} />
+        <TrustNote text="AI provider configuration is backend-only. No API key is stored in the extension. AI-assisted output is a suggestion layer and requires QA review." />
       </SettingsCard>
       <SettingsCard title="Automation" body="Automation setup is a later capability after approved test cases.">
         <InfoGrid

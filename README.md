@@ -39,11 +39,11 @@ Browser Extension
 
 ## Current Status
 
-Step 0022 Azure Test Plans explicit creation approval flow is implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
+Step 0023 optional backend LLM provider adapter is implemented for review. The repository contains a Chrome Manifest V3 extension under `apps/extension`, a Fastify TypeScript backend under `apps/api`, and shared TypeScript contracts under `packages/shared`.
 
 Azure DevOps URL-only work item detection exists in the extension. The side panel uses a calm, small-window-friendly four-section flow: Today, Story, Run, and Settings. Settings starts with an Azure DevOps Services or TFS URL, checks the connection through the backend, discovers Azure DevOps Services projects and team boards, and keeps manual setup under advanced local preview. Settings now includes a metadata-only Board Knowledge shell scoped to the selected team board. Today can request a read-only board condition preview and then generate an evidence-bound deterministic QA briefing from that returned board data. Story can request read-only Azure work item detail through the backend and generate a deterministic evidence-bound requirement/gap analysis from the fetched detail.
 
-The Azure DevOps PAT remains a local development backend-only fallback and is never requested by the extension. The product direction is seamless Azure/Microsoft auth later through Microsoft Entra/OAuth. The current board briefing, Story requirement analysis, and test case drafts are deterministic preview logic, not LLM calls. Board knowledge supports metadata plus a backend JSON-only extraction preview for manually pasted `.txt` and `.md` text. Story analysis can include only user-selected board knowledge metadata, capped extraction preview evidence, or a short user-confirmed note. Test case drafts are generated from available evidence only and can be reviewed, edited, approved for later export, rejected, or blocked in the Story panel. Step 0021 adds a readiness preview that shows which validated reviewed cases could become Azure Test Plans candidates, which cases remain blocked, and whether non-secret Test Plan/Suite target IDs are missing. Step 0022 adds the first explicit creation path: QA must select candidates manually and confirm before the backend creates test cases in Azure Test Plans. Blocked and non-selected cases are not created. Board knowledge is not automatically indexed or linked. OAuth, database/storage, comments, bug creation, story linking, final persisted approved test cases, export packaging, and automation generation are intentionally not implemented yet.
+The Azure DevOps PAT remains a local development backend-only fallback and is never requested by the extension. The product direction is seamless Azure/Microsoft auth later through Microsoft Entra/OAuth. Deterministic board briefing, Story requirement analysis, and test case draft generation remain the default baseline. Board knowledge supports metadata plus a backend JSON-only extraction preview for manually pasted `.txt` and `.md` text. Story analysis can include only user-selected board knowledge metadata, capped extraction preview evidence, or a short user-confirmed note. Test case drafts are generated from available evidence only and can be reviewed, edited, approved for later export, rejected, or blocked in the Story panel. Step 0021 adds a readiness preview that shows which validated reviewed cases could become Azure Test Plans candidates, which cases remain blocked, and whether non-secret Test Plan/Suite target IDs are missing. Step 0022 adds the first explicit creation path: QA must select candidates manually and confirm before the backend creates test cases in Azure Test Plans. Step 0023 adds optional backend-only LLM provider status and a separate Story AI assist route; no API key is stored in the extension, AI output is suggestion-only, and deterministic analysis remains visible. Blocked and non-selected cases are not created. Board knowledge is not automatically indexed or linked. OAuth, database/storage, comments, bug creation, story linking, final persisted approved test cases, export packaging, and automation generation are intentionally not implemented yet.
 
 ## Local Development
 
@@ -96,6 +96,7 @@ AZURE_DEVOPS_REQUEST_TIMEOUT_MS=10000
 ```
 
 Do not put PATs or tokens into the extension Settings panel.
+Do not put AI provider keys into the extension. Optional LLM settings belong only in the API server environment.
 
 Load the unpacked extension locally:
 
@@ -115,9 +116,10 @@ Test the simplified QA Assist side panel and Azure DevOps page detection locally
 6. In `Story`, click `Fetch story details` and confirm details appear only after the backend call succeeds.
 7. Optionally select linked board knowledge evidence in Story, then click `Analyze requirements` and confirm the output is labeled `Evidence-bound preview`.
 8. Confirm evidence coverage, linked evidence, gaps/questions, and likely test areas are clearly non-final and need confirmation.
-9. Generate draft test cases and confirm they are labeled draft-only with evidence links and warnings.
-10. Review a generated draft, edit the title/objective/steps/expected result, add a reviewer note, and explicitly approve/reject/block it.
-11. Click `Validate review decisions` and confirm the normalized session says reviewed cases are local/session output only and nothing was created in Azure Test Plans.
+9. Confirm optional `Request AI assist` appears as a separate suggestion layer after deterministic analysis and stays disabled when the backend provider is disabled or misconfigured.
+10. Generate draft test cases and confirm they are labeled draft-only with evidence links and warnings.
+11. Review a generated draft, edit the title/objective/steps/expected result, add a reviewer note, and explicitly approve/reject/block it.
+12. Click `Validate review decisions` and confirm the normalized session says reviewed cases are local/session output only and nothing was created in Azure Test Plans.
 12. In `Settings`, optionally enter non-secret Azure Test Plan/Suite IDs for readiness preview only.
 13. In `Story`, click `Preview Test Plans readiness` after review validation and confirm the UI says preview only and nothing is created during preview.
 14. Select one or more readiness candidates, check the final confirmation, and confirm the create button says `Create selected in Azure Test Plans`.

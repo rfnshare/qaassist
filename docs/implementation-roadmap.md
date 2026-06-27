@@ -24,10 +24,7 @@
 - 0020 Test case review/edit workflow.
 - 0021 Azure Test Plans write-back readiness preview.
 - 0022 Azure Test Plans explicit creation approval flow.
-
-## 0023 Optional Backend LLM Provider Adapter
-
-Add optional backend-mediated LLM provider abstraction for approved AI workflows. The extension must not hold AI keys.
+- 0023 Optional backend LLM provider adapter.
 
 ## 0024 Automation Candidate Mapping
 
@@ -40,6 +37,10 @@ Package reviewed local/session output for copy/export review without silent writ
 ## 0026 Story/Bug Write-Back Helpers
 
 Add reviewed helper flows for story comments, bug creation, and traceability links only after explicit user confirmation.
+
+## 0027 Broader AI-Assisted Refinement Rollout
+
+Expand backend-mediated LLM assistance to board briefing, draft refinement, and review support after prompt/versioning, audit, and confirmation guardrails are designed.
 
 ## Later Story Workspace Requirement Discussion
 

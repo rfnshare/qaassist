@@ -26,6 +26,7 @@ docs/prompts/0019-test-case-draft-generation.md
 docs/prompts/0020-test-case-review-workflow.md
 docs/prompts/0021-test-plans-readiness-preview.md
 docs/prompts/0022-test-plans-explicit-creation-flow.md
+docs/prompts/0023-backend-llm-provider-adapter.md
 ```
 
 If the prompt changes during implementation, keep the stored prompt faithful to the final requested task and note material differences in the final response.
@@ -54,3 +55,4 @@ If the prompt changes during implementation, keep the stored prompt faithful to 
 - `0020-test-case-review-workflow`: local/session review and edit workflow for generated test case drafts, backend review normalization, explicit approve/reject/block decisions, and docs without Azure Test Plans creation, LLM calls, persistence, or write-back.
 - `0021-test-plans-readiness-preview`: Azure Test Plans readiness contracts, backend preview route, non-secret target settings, and Story readiness UI for validated reviewed cases without Azure calls, write-back, LLM calls, persistence, or silent approval.
 - `0022-test-plans-explicit-creation-flow`: backend-mediated Azure Test Plans creation for explicitly selected readiness candidates after final confirmation, with created/failed/skipped results and docs without silent write-back, story linking, LLM calls, PAT storage, or persistence.
+- `0023-backend-llm-provider-adapter`: optional backend-only LLM provider status and Story assist route, Settings provider status UI, and separate AI-assisted suggestions without extension secrets, mandatory LLM use, write-back, persistence, or deterministic flow replacement.

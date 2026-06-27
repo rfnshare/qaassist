@@ -6,6 +6,14 @@ export type ApiEnv = {
   azureDevOpsPat?: string;
   azureDevOpsApiVersion: string;
   azureDevOpsRequestTimeoutMs: number;
+  llmProvider?: string;
+  openAiApiKey?: string;
+  openAiModel?: string;
+  openAiBaseUrl?: string;
+  azureOpenAiApiKey?: string;
+  azureOpenAiEndpoint?: string;
+  azureOpenAiDeployment?: string;
+  azureOpenAiApiVersion?: string;
 };
 
 const DEFAULT_PORT = 4317;
@@ -33,7 +41,15 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): ApiEnv {
     nodeEnv: parseNodeEnv(source.NODE_ENV),
     azureDevOpsPat: normalizeOptionalSecret(source.AZURE_DEVOPS_PAT),
     azureDevOpsApiVersion: source.AZURE_DEVOPS_API_VERSION ?? DEFAULT_AZURE_DEVOPS_API_VERSION,
-    azureDevOpsRequestTimeoutMs
+    azureDevOpsRequestTimeoutMs,
+    llmProvider: normalizeOptionalString(source.LLM_PROVIDER),
+    openAiApiKey: normalizeOptionalSecret(source.OPENAI_API_KEY),
+    openAiModel: normalizeOptionalString(source.OPENAI_MODEL),
+    openAiBaseUrl: normalizeOptionalString(source.OPENAI_BASE_URL),
+    azureOpenAiApiKey: normalizeOptionalSecret(source.AZURE_OPENAI_API_KEY),
+    azureOpenAiEndpoint: normalizeOptionalString(source.AZURE_OPENAI_ENDPOINT),
+    azureOpenAiDeployment: normalizeOptionalString(source.AZURE_OPENAI_DEPLOYMENT),
+    azureOpenAiApiVersion: normalizeOptionalString(source.AZURE_OPENAI_API_VERSION)
   };
 }
 
@@ -51,4 +67,9 @@ function normalizeOptionalSecret(value: string | undefined): string | undefined 
   }
 
   return value;
+}
+
+function normalizeOptionalString(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
 }

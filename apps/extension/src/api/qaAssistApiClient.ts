@@ -10,8 +10,11 @@ import type {
   CurrentQaUserSettings,
   KnowledgeExtractionRequest,
   KnowledgeExtractionResult,
+  LlmProviderConfigurationSummary,
   QaWorkQueue,
   BoardSummary,
+  StoryAnalysisAssistRequest,
+  StoryAnalysisAssistResult,
   StoryRequirementAnalysis,
   StoryRequirementAnalysisRequest,
   TestCaseDraftGenerationRequest,
@@ -113,6 +116,17 @@ export async function createTestPlansCases(
   return postJson(apiBaseUrl, "/test-plans/create", input);
 }
 
+export async function fetchLlmProviderStatus(apiBaseUrl: string): Promise<LlmProviderConfigurationSummary> {
+  return getJson(apiBaseUrl, "/ai/provider-status");
+}
+
+export async function requestStoryAnalysisAssist(
+  apiBaseUrl: string,
+  input: StoryAnalysisAssistRequest
+): Promise<StoryAnalysisAssistResult> {
+  return postJson(apiBaseUrl, "/ai/story-analysis/assist", input);
+}
+
 export async function validateBoardKnowledgeSource(
   apiBaseUrl: string,
   input: {
@@ -150,6 +164,17 @@ export async function generateBoardBriefing(
   }
 ): Promise<BoardBriefing> {
   return postJson(apiBaseUrl, "/briefings/board", input);
+}
+
+async function getJson<T>(apiBaseUrl: string, path: string): Promise<T> {
+  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}${path}`);
+  const payload = (await response.json()) as T | { error?: { message?: string } };
+
+  if (!response.ok) {
+    throw new Error(getApiErrorMessage(payload));
+  }
+
+  return payload as T;
 }
 
 async function postJson<T>(apiBaseUrl: string, path: string, body: unknown): Promise<T> {

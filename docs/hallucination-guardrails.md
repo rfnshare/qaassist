@@ -34,4 +34,5 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Step 0025 exports must preserve trust labels: deterministic evidence, AI-assisted suggestions, draft-only cases, reviewed local/session output, readiness preview-only output, explicit creation results, and automation planning-only output.
 - Step 0026 write-back helper previews must preserve uncertainty and warnings. A bug, comment, state transition, or attachment metadata preview is not a submitted Azure DevOps change and must require future explicit confirmation.
 - Step 0027 AI refinements are suggestion-only layers on deterministic outputs. They must be labeled `llm-assisted`, keep the deterministic baseline visible, avoid presenting provider suggestions as fact, and require QA to manually review anything useful.
+- Step 0028 automation scaffold previews must not pretend selectors, endpoints, test data, or environments are known when they are not. Missing selectors/endpoints/test data stay visible as gaps, and preview file paths are planning metadata only.
 - Test cases must not be treated as final outside Azure Test Plans until reviewed and confirmed by the QA user.

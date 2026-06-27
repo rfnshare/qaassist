@@ -4,6 +4,8 @@ import type {
   AzureDevOpsTeamOption,
   AutomationCandidateMappingRequest,
   AutomationCandidateMappingResult,
+  AutomationScaffoldRequest,
+  AutomationScaffoldResult,
   AiRefinementRequest,
   AiRefinementResult,
   BoardBriefing,
@@ -129,6 +131,13 @@ export async function mapAutomationCandidates(
   input: AutomationCandidateMappingRequest
 ): Promise<AutomationCandidateMappingResult> {
   return postJson(apiBaseUrl, "/automation/candidates/map", input);
+}
+
+export async function previewAutomationScaffold(
+  apiBaseUrl: string,
+  input: AutomationScaffoldRequest
+): Promise<AutomationScaffoldResult> {
+  return postJson(apiBaseUrl, "/automation/scaffold/preview", input);
 }
 
 export async function exportReviewPackage(

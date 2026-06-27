@@ -47,6 +47,8 @@ Step 0026 adds Story/bug write-back helper previews. The Story tab can prepare b
 
 Step 0027 expands optional backend-mediated AI refinement across deterministic outputs. Story AI assist remains separate, and draft cases, automation mapping, and write-back helper previews can each request AI suggestions only after their deterministic baseline exists. Suggestions render in separate cards, never auto-apply, never enable Azure/Test Plans actions, and must stay disabled or safely messaged when the provider is disabled or misconfigured.
 
+Step 0028 adds an automation scaffold preview after automation mapping. The user selects candidates manually, chooses whether selector notes, test data notes, or API client shape should be included, and previews likely files/dependencies/gaps. No candidate is selected by default, no files are created, no repositories are written, and no CI/CD configuration is generated.
+
 ## Setup Flow
 
 Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.

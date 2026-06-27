@@ -9,6 +9,8 @@ import type {
   AiRefinementResult,
   AutomationCandidateMappingResult,
   AutomationMappingOptions,
+  AutomationScaffoldOptions,
+  AutomationScaffoldResult,
   BoardBriefing,
   BoardKnowledgeSource,
   BoardKnowledgeSourceType,
@@ -53,6 +55,7 @@ import {
   mapAutomationCandidates,
   normalizeReviewedTestCases,
   previewTestPlansReadiness,
+  previewAutomationScaffold,
   previewWritebackHelper,
   requestAiRefinement,
   requestStoryAnalysisAssist,
@@ -77,6 +80,7 @@ type ReviewStatus = "idle" | "loading" | "success" | "error";
 type TestPlansReadinessStatus = "idle" | "loading" | "success" | "error";
 type TestPlansCreationRequestStatus = "idle" | "loading" | "success" | "error";
 type AutomationMappingStatus = "idle" | "loading" | "success" | "error";
+type AutomationScaffoldPreviewStatus = "idle" | "loading" | "success" | "error";
 type ReviewExportStatus = "idle" | "loading" | "success" | "error";
 type WritebackPreviewRequestStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
@@ -216,6 +220,15 @@ export function App() {
     preferUi: true,
     preferApi: false,
     includeBlocked: false
+  });
+  const [automationScaffoldStatus, setAutomationScaffoldStatus] = useState<AutomationScaffoldPreviewStatus>("idle");
+  const [automationScaffoldMessage, setAutomationScaffoldMessage] = useState("Map automation candidates before previewing a scaffold.");
+  const [automationScaffoldResult, setAutomationScaffoldResult] = useState<AutomationScaffoldResult | null>(null);
+  const [selectedAutomationScaffoldCandidateIds, setSelectedAutomationScaffoldCandidateIds] = useState<string[]>([]);
+  const [automationScaffoldOptions, setAutomationScaffoldOptions] = useState<Required<AutomationScaffoldOptions>>({
+    includeSelectors: false,
+    includeTestDataNotes: false,
+    includeApiClientShape: false
   });
   const [reviewExportStatus, setReviewExportStatus] = useState<ReviewExportStatus>("idle");
   const [reviewExportMessage, setReviewExportMessage] = useState("Export package is available after useful Story data exists.");
@@ -698,8 +711,16 @@ export function App() {
     setAutomationMappingResult(null);
     setAutomationMappingStatus("idle");
     setAutomationMappingMessage(message);
+    resetAutomationScaffold("Automation mapping changed. Preview scaffold after a fresh mapping.");
     resetAutomationRefinement("Automation mapping changed. Request AI refinement after a fresh mapping.");
     resetReviewExport("Automation mapping changed. Generate a fresh export package when ready.");
+  }
+
+  function resetAutomationScaffold(message: string): void {
+    setAutomationScaffoldResult(null);
+    setAutomationScaffoldStatus("idle");
+    setAutomationScaffoldMessage(message);
+    setSelectedAutomationScaffoldCandidateIds([]);
   }
 
   function resetReviewExport(message: string): void {
@@ -828,6 +849,7 @@ export function App() {
       setAutomationMappingResult(result);
       setAutomationMappingStatus("success");
       setAutomationMappingMessage("Automation candidate mapping is ready. Planning only - no automation code created.");
+      resetAutomationScaffold("Automation mapping is ready. Select candidates to preview a scaffold.");
       resetReviewExport("Automation mapping is ready. Generate export package when ready.");
       resetWritebackPreview("Automation mapping changed. Preview helper again when ready.");
     } catch (error) {
@@ -837,6 +859,54 @@ export function App() {
       resetReviewExport("Automation mapping failed. Generate export package after useful data exists.");
       resetWritebackPreview("Automation mapping failed. Preview helper after useful data exists.");
     }
+  }
+
+  async function previewSelectedAutomationScaffold(): Promise<void> {
+    if (!automationMappingResult) {
+      setAutomationScaffoldStatus("error");
+      setAutomationScaffoldMessage("Map automation candidates before previewing a scaffold.");
+      return;
+    }
+
+    if (selectedAutomationScaffoldCandidateIds.length === 0) {
+      setAutomationScaffoldStatus("error");
+      setAutomationScaffoldMessage("Select at least one automation candidate before previewing a scaffold.");
+      return;
+    }
+
+    setAutomationScaffoldStatus("loading");
+    setAutomationScaffoldMessage("Building scaffold preview. No files or repository changes will be created.");
+
+    try {
+      const result = await previewAutomationScaffold(settings.apiBaseUrl, {
+        automationMappingResult,
+        selectedCandidateIds: selectedAutomationScaffoldCandidateIds,
+        scaffoldOptions: automationScaffoldOptions
+      });
+
+      setAutomationScaffoldResult(result);
+      setAutomationScaffoldStatus("success");
+      setAutomationScaffoldMessage("Automation scaffold preview generated. No code or repository changes were created.");
+      resetReviewExport("Automation scaffold preview changed. Generate a fresh export package when ready.");
+    } catch (error) {
+      setAutomationScaffoldResult(null);
+      setAutomationScaffoldStatus("error");
+      setAutomationScaffoldMessage(error instanceof Error ? error.message : "Automation scaffold preview failed.");
+    }
+  }
+
+  function updateSelectedAutomationScaffoldCandidateIds(candidateIds: string[]): void {
+    setSelectedAutomationScaffoldCandidateIds(candidateIds);
+    setAutomationScaffoldResult(null);
+    setAutomationScaffoldStatus("idle");
+    setAutomationScaffoldMessage("Candidate selection changed. Preview scaffold again when ready.");
+  }
+
+  function updateAutomationScaffoldOptions(options: Required<AutomationScaffoldOptions>): void {
+    setAutomationScaffoldOptions(options);
+    setAutomationScaffoldResult(null);
+    setAutomationScaffoldStatus("idle");
+    setAutomationScaffoldMessage("Scaffold options changed. Preview scaffold again when ready.");
   }
 
   async function previewAzureTestPlansReadiness(): Promise<void> {
@@ -1130,6 +1200,13 @@ export function App() {
           automationMappingResult,
           automationMappingOptions,
           setAutomationMappingOptions,
+          automationScaffoldStatus,
+          automationScaffoldMessage,
+          automationScaffoldResult,
+          selectedAutomationScaffoldCandidateIds,
+          setSelectedAutomationScaffoldCandidateIds: updateSelectedAutomationScaffoldCandidateIds,
+          automationScaffoldOptions,
+          setAutomationScaffoldOptions: updateAutomationScaffoldOptions,
           automationRefinementStatus,
           automationRefinementMessage,
           automationRefinementResult,
@@ -1179,6 +1256,7 @@ export function App() {
           onTestPlansCreationConfirmedChange: setTestPlansCreationConfirmed,
           onCreateSelectedTestPlansCases: createSelectedAzureTestPlansCases,
           onMapAutomationCandidates: mapReviewedAutomationCandidates,
+          onPreviewAutomationScaffold: previewSelectedAutomationScaffold,
           onRequestAutomationRefinement: requestAutomationRefinement,
           onGenerateReviewExport: generateReviewExportPackage,
           onPreviewWritebackHelper: previewSelectedWritebackHelper,
@@ -1249,6 +1327,13 @@ function renderPanel(props: {
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
+  automationScaffoldStatus: AutomationScaffoldPreviewStatus;
+  automationScaffoldMessage: string;
+  automationScaffoldResult: AutomationScaffoldResult | null;
+  selectedAutomationScaffoldCandidateIds: string[];
+  setSelectedAutomationScaffoldCandidateIds: (candidateIds: string[]) => void;
+  automationScaffoldOptions: Required<AutomationScaffoldOptions>;
+  setAutomationScaffoldOptions: (options: Required<AutomationScaffoldOptions>) => void;
   automationRefinementStatus: AiAssistStatus;
   automationRefinementMessage: string;
   automationRefinementResult: AiRefinementResult | null;
@@ -1298,6 +1383,7 @@ function renderPanel(props: {
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onPreviewAutomationScaffold: () => void;
   onRequestAutomationRefinement: () => void;
   onGenerateReviewExport: () => void;
   onPreviewWritebackHelper: () => void;
@@ -1360,6 +1446,13 @@ function renderPanel(props: {
           automationMappingResult={props.automationMappingResult}
           automationMappingOptions={props.automationMappingOptions}
           setAutomationMappingOptions={props.setAutomationMappingOptions}
+          automationScaffoldStatus={props.automationScaffoldStatus}
+          automationScaffoldMessage={props.automationScaffoldMessage}
+          automationScaffoldResult={props.automationScaffoldResult}
+          selectedAutomationScaffoldCandidateIds={props.selectedAutomationScaffoldCandidateIds}
+          setSelectedAutomationScaffoldCandidateIds={props.setSelectedAutomationScaffoldCandidateIds}
+          automationScaffoldOptions={props.automationScaffoldOptions}
+          setAutomationScaffoldOptions={props.setAutomationScaffoldOptions}
           automationRefinementStatus={props.automationRefinementStatus}
           automationRefinementMessage={props.automationRefinementMessage}
           automationRefinementResult={props.automationRefinementResult}
@@ -1408,6 +1501,7 @@ function renderPanel(props: {
           onTestPlansCreationConfirmedChange={props.onTestPlansCreationConfirmedChange}
           onCreateSelectedTestPlansCases={props.onCreateSelectedTestPlansCases}
           onMapAutomationCandidates={props.onMapAutomationCandidates}
+          onPreviewAutomationScaffold={props.onPreviewAutomationScaffold}
           onRequestAutomationRefinement={props.onRequestAutomationRefinement}
           onGenerateReviewExport={props.onGenerateReviewExport}
           onPreviewWritebackHelper={props.onPreviewWritebackHelper}
@@ -1550,6 +1644,13 @@ function StoryPanel({
   automationMappingResult,
   automationMappingOptions,
   setAutomationMappingOptions,
+  automationScaffoldStatus,
+  automationScaffoldMessage,
+  automationScaffoldResult,
+  selectedAutomationScaffoldCandidateIds,
+  setSelectedAutomationScaffoldCandidateIds,
+  automationScaffoldOptions,
+  setAutomationScaffoldOptions,
   automationRefinementStatus,
   automationRefinementMessage,
   automationRefinementResult,
@@ -1598,6 +1699,7 @@ function StoryPanel({
   onTestPlansCreationConfirmedChange,
   onCreateSelectedTestPlansCases,
   onMapAutomationCandidates,
+  onPreviewAutomationScaffold,
   onRequestAutomationRefinement,
   onGenerateReviewExport,
   onPreviewWritebackHelper,
@@ -1640,6 +1742,13 @@ function StoryPanel({
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
+  automationScaffoldStatus: AutomationScaffoldPreviewStatus;
+  automationScaffoldMessage: string;
+  automationScaffoldResult: AutomationScaffoldResult | null;
+  selectedAutomationScaffoldCandidateIds: string[];
+  setSelectedAutomationScaffoldCandidateIds: (candidateIds: string[]) => void;
+  automationScaffoldOptions: Required<AutomationScaffoldOptions>;
+  setAutomationScaffoldOptions: (options: Required<AutomationScaffoldOptions>) => void;
   automationRefinementStatus: AiAssistStatus;
   automationRefinementMessage: string;
   automationRefinementResult: AiRefinementResult | null;
@@ -1688,6 +1797,7 @@ function StoryPanel({
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onPreviewAutomationScaffold: () => void;
   onRequestAutomationRefinement: () => void;
   onGenerateReviewExport: () => void;
   onPreviewWritebackHelper: () => void;
@@ -1780,6 +1890,13 @@ function StoryPanel({
             automationMappingResult={automationMappingResult}
             automationMappingOptions={automationMappingOptions}
             onAutomationMappingOptionsChange={setAutomationMappingOptions}
+            automationScaffoldStatus={automationScaffoldStatus}
+            automationScaffoldMessage={automationScaffoldMessage}
+            automationScaffoldResult={automationScaffoldResult}
+            selectedAutomationScaffoldCandidateIds={selectedAutomationScaffoldCandidateIds}
+            onSelectedAutomationScaffoldCandidateIdsChange={setSelectedAutomationScaffoldCandidateIds}
+            automationScaffoldOptions={automationScaffoldOptions}
+            onAutomationScaffoldOptionsChange={setAutomationScaffoldOptions}
             automationRefinementStatus={automationRefinementStatus}
             automationRefinementMessage={automationRefinementMessage}
             automationRefinementResult={automationRefinementResult}
@@ -1793,6 +1910,7 @@ function StoryPanel({
             onTestPlansCreationConfirmedChange={onTestPlansCreationConfirmedChange}
             onCreateSelectedTestPlansCases={onCreateSelectedTestPlansCases}
             onMapAutomationCandidates={onMapAutomationCandidates}
+            onPreviewAutomationScaffold={onPreviewAutomationScaffold}
             onRequestAutomationRefinement={onRequestAutomationRefinement}
           />
           <ReviewExportCard
@@ -2232,6 +2350,13 @@ function TestCaseDraftCard({
   automationMappingResult,
   automationMappingOptions,
   onAutomationMappingOptionsChange,
+  automationScaffoldStatus,
+  automationScaffoldMessage,
+  automationScaffoldResult,
+  selectedAutomationScaffoldCandidateIds,
+  onSelectedAutomationScaffoldCandidateIdsChange,
+  automationScaffoldOptions,
+  onAutomationScaffoldOptionsChange,
   automationRefinementStatus,
   automationRefinementMessage,
   automationRefinementResult,
@@ -2245,6 +2370,7 @@ function TestCaseDraftCard({
   onTestPlansCreationConfirmedChange,
   onCreateSelectedTestPlansCases,
   onMapAutomationCandidates,
+  onPreviewAutomationScaffold,
   onRequestAutomationRefinement
 }: {
   analysis: StoryRequirementAnalysis | null;
@@ -2273,6 +2399,13 @@ function TestCaseDraftCard({
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   onAutomationMappingOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  automationScaffoldStatus: AutomationScaffoldPreviewStatus;
+  automationScaffoldMessage: string;
+  automationScaffoldResult: AutomationScaffoldResult | null;
+  selectedAutomationScaffoldCandidateIds: string[];
+  onSelectedAutomationScaffoldCandidateIdsChange: (candidateIds: string[]) => void;
+  automationScaffoldOptions: Required<AutomationScaffoldOptions>;
+  onAutomationScaffoldOptionsChange: (options: Required<AutomationScaffoldOptions>) => void;
   automationRefinementStatus: AiAssistStatus;
   automationRefinementMessage: string;
   automationRefinementResult: AiRefinementResult | null;
@@ -2286,6 +2419,7 @@ function TestCaseDraftCard({
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onPreviewAutomationScaffold: () => void;
   onRequestAutomationRefinement: () => void;
 }) {
   function toggleInput(key: keyof Required<TestCaseDraftSelectedInputs>): void {
@@ -2349,11 +2483,19 @@ function TestCaseDraftCard({
             automationMappingResult={automationMappingResult}
             automationMappingOptions={automationMappingOptions}
             onAutomationMappingOptionsChange={onAutomationMappingOptionsChange}
+            automationScaffoldStatus={automationScaffoldStatus}
+            automationScaffoldMessage={automationScaffoldMessage}
+            automationScaffoldResult={automationScaffoldResult}
+            selectedAutomationScaffoldCandidateIds={selectedAutomationScaffoldCandidateIds}
+            onSelectedAutomationScaffoldCandidateIdsChange={onSelectedAutomationScaffoldCandidateIdsChange}
+            automationScaffoldOptions={automationScaffoldOptions}
+            onAutomationScaffoldOptionsChange={onAutomationScaffoldOptionsChange}
             automationRefinementStatus={automationRefinementStatus}
             automationRefinementMessage={automationRefinementMessage}
             automationRefinementResult={automationRefinementResult}
             llmProviderStatus={llmProviderStatus}
             onMapAutomationCandidates={onMapAutomationCandidates}
+            onPreviewAutomationScaffold={onPreviewAutomationScaffold}
             onRequestAutomationRefinement={onRequestAutomationRefinement}
           />
         </>
@@ -2398,11 +2540,19 @@ function TestCaseDraftResult({
   automationMappingResult,
   automationMappingOptions,
   onAutomationMappingOptionsChange,
+  automationScaffoldStatus,
+  automationScaffoldMessage,
+  automationScaffoldResult,
+  selectedAutomationScaffoldCandidateIds,
+  onSelectedAutomationScaffoldCandidateIdsChange,
+  automationScaffoldOptions,
+  onAutomationScaffoldOptionsChange,
   automationRefinementStatus,
   automationRefinementMessage,
   automationRefinementResult,
   llmProviderStatus,
   onMapAutomationCandidates,
+  onPreviewAutomationScaffold,
   onRequestAutomationRefinement
 }: {
   result: TestCaseDraftGenerationResult;
@@ -2429,11 +2579,19 @@ function TestCaseDraftResult({
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   onAutomationMappingOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  automationScaffoldStatus: AutomationScaffoldPreviewStatus;
+  automationScaffoldMessage: string;
+  automationScaffoldResult: AutomationScaffoldResult | null;
+  selectedAutomationScaffoldCandidateIds: string[];
+  onSelectedAutomationScaffoldCandidateIdsChange: (candidateIds: string[]) => void;
+  automationScaffoldOptions: Required<AutomationScaffoldOptions>;
+  onAutomationScaffoldOptionsChange: (options: Required<AutomationScaffoldOptions>) => void;
   automationRefinementStatus: AiAssistStatus;
   automationRefinementMessage: string;
   automationRefinementResult: AiRefinementResult | null;
   llmProviderStatus: LlmProviderConfigurationSummary | null;
   onMapAutomationCandidates: () => void;
+  onPreviewAutomationScaffold: () => void;
   onRequestAutomationRefinement: () => void;
 }) {
   const summary = reviewSession?.summary ?? buildLocalReviewSummary(reviewCases, result.draftCases.length);
@@ -2506,11 +2664,19 @@ function TestCaseDraftResult({
             result={automationMappingResult}
             options={automationMappingOptions}
             onOptionsChange={onAutomationMappingOptionsChange}
+            scaffoldStatus={automationScaffoldStatus}
+            scaffoldMessage={automationScaffoldMessage}
+            scaffoldResult={automationScaffoldResult}
+            selectedScaffoldCandidateIds={selectedAutomationScaffoldCandidateIds}
+            onSelectedScaffoldCandidateIdsChange={onSelectedAutomationScaffoldCandidateIdsChange}
+            scaffoldOptions={automationScaffoldOptions}
+            onScaffoldOptionsChange={onAutomationScaffoldOptionsChange}
             refinementStatus={automationRefinementStatus}
             refinementMessage={automationRefinementMessage}
             refinementResult={automationRefinementResult}
             llmProviderStatus={llmProviderStatus}
             onMap={onMapAutomationCandidates}
+            onPreviewScaffold={onPreviewAutomationScaffold}
             onRequestRefinement={onRequestAutomationRefinement}
           />
         </>
@@ -2746,11 +2912,19 @@ function AutomationCandidateCard({
   result,
   options,
   onOptionsChange,
+  scaffoldStatus,
+  scaffoldMessage,
+  scaffoldResult,
+  selectedScaffoldCandidateIds,
+  onSelectedScaffoldCandidateIdsChange,
+  scaffoldOptions,
+  onScaffoldOptionsChange,
   refinementStatus,
   refinementMessage,
   refinementResult,
   llmProviderStatus,
   onMap,
+  onPreviewScaffold,
   onRequestRefinement
 }: {
   reviewSession: TestCaseReviewSession;
@@ -2759,11 +2933,19 @@ function AutomationCandidateCard({
   result: AutomationCandidateMappingResult | null;
   options: Required<AutomationMappingOptions>;
   onOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  scaffoldStatus: AutomationScaffoldPreviewStatus;
+  scaffoldMessage: string;
+  scaffoldResult: AutomationScaffoldResult | null;
+  selectedScaffoldCandidateIds: string[];
+  onSelectedScaffoldCandidateIdsChange: (candidateIds: string[]) => void;
+  scaffoldOptions: Required<AutomationScaffoldOptions>;
+  onScaffoldOptionsChange: (options: Required<AutomationScaffoldOptions>) => void;
   refinementStatus: AiAssistStatus;
   refinementMessage: string;
   refinementResult: AiRefinementResult | null;
   llmProviderStatus: LlmProviderConfigurationSummary | null;
   onMap: () => void;
+  onPreviewScaffold: () => void;
   onRequestRefinement: () => void;
 }) {
   function toggleOption(key: keyof Required<AutomationMappingOptions>): void {
@@ -2791,6 +2973,19 @@ function AutomationCandidateCard({
       />
       <InfoCard title="Automation mapping status" body={message} tone={status === "error" ? "warning" : "neutral"} />
       {result ? <AutomationCandidateResult result={result} /> : null}
+      {result ? (
+        <AutomationScaffoldCard
+          mappingResult={result}
+          status={scaffoldStatus}
+          message={scaffoldMessage}
+          result={scaffoldResult}
+          selectedCandidateIds={selectedScaffoldCandidateIds}
+          onSelectedCandidateIdsChange={onSelectedScaffoldCandidateIdsChange}
+          options={scaffoldOptions}
+          onOptionsChange={onScaffoldOptionsChange}
+          onPreview={onPreviewScaffold}
+        />
+      ) : null}
       {result ? (
         <AiRefinementCard
           title="AI-assisted automation refinements"
@@ -2851,6 +3046,117 @@ function AutomationCandidateResult({ result }: { result: AutomationCandidateMapp
           <p>No blocked cases returned in this mapping.</p>
         )}
       </div>
+      <p className="trust-note">{result.disclaimer}</p>
+    </div>
+  );
+}
+
+function AutomationScaffoldCard({
+  mappingResult,
+  status,
+  message,
+  result,
+  selectedCandidateIds,
+  onSelectedCandidateIdsChange,
+  options,
+  onOptionsChange,
+  onPreview
+}: {
+  mappingResult: AutomationCandidateMappingResult;
+  status: AutomationScaffoldPreviewStatus;
+  message: string;
+  result: AutomationScaffoldResult | null;
+  selectedCandidateIds: string[];
+  onSelectedCandidateIdsChange: (candidateIds: string[]) => void;
+  options: Required<AutomationScaffoldOptions>;
+  onOptionsChange: (options: Required<AutomationScaffoldOptions>) => void;
+  onPreview: () => void;
+}) {
+  function toggleCandidate(candidateId: string): void {
+    onSelectedCandidateIdsChange(
+      selectedCandidateIds.includes(candidateId)
+        ? selectedCandidateIds.filter((id) => id !== candidateId)
+        : [...selectedCandidateIds, candidateId]
+    );
+  }
+
+  function toggleOption(key: keyof Required<AutomationScaffoldOptions>): void {
+    onOptionsChange({ ...options, [key]: !options[key] });
+  }
+
+  return (
+    <article className="info-card automation-scaffold-card">
+      <div className="card-row">
+        <h4>Automation scaffold preview</h4>
+        <span className={result?.status === "preview-ready" ? "status-pill success" : result ? "status-pill warning" : "status-pill"}>
+          {result?.status ?? "Preview only"}
+        </span>
+      </div>
+      <p>Preview only - no automation code, repository files, or CI/CD configuration will be created.</p>
+      <div className="analysis-list readiness-list">
+        <span>Candidate selection - none selected by default</span>
+        <div className="choice-list">
+          {mappingResult.candidates.map((candidate) => (
+            <label key={candidate.reviewedCaseId} className="choice-row">
+              <input
+                type="checkbox"
+                checked={selectedCandidateIds.includes(candidate.reviewedCaseId)}
+                onChange={() => toggleCandidate(candidate.reviewedCaseId)}
+              />
+              <span>
+                <strong>{candidate.title}</strong>
+                <small>{candidate.candidateType} | {candidate.readiness} | {candidate.recommendedSurface}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="choice-list compact">
+        <DraftOption label="Include selector notes" checked={options.includeSelectors} onChange={() => toggleOption("includeSelectors")} />
+        <DraftOption label="Include test data notes" checked={options.includeTestDataNotes} onChange={() => toggleOption("includeTestDataNotes")} />
+        <DraftOption label="Include API client shape" checked={options.includeApiClientShape} onChange={() => toggleOption("includeApiClientShape")} />
+      </div>
+      <SecondaryAction
+        label={status === "loading" ? "Previewing scaffold..." : "Preview automation scaffold"}
+        disabled={status === "loading" || selectedCandidateIds.length === 0}
+        onClick={onPreview}
+      />
+      <InfoCard title="Scaffold status" body={message} tone={status === "error" ? "warning" : "neutral"} />
+      {result ? <AutomationScaffoldResultView result={result} /> : null}
+    </article>
+  );
+}
+
+function AutomationScaffoldResultView({ result }: { result: AutomationScaffoldResult }) {
+  return (
+    <div className="automation-result">
+      <InfoGrid
+        items={[
+          ["Target", result.target],
+          ["Status", result.status],
+          ["Selected candidates", String(result.basedOnCandidateIds.length)],
+          ["Generated", formatDateTime(result.generatedAt)]
+        ]}
+      />
+      <div className="analysis-list readiness-list">
+        <span>Preview files</span>
+        {result.files.length > 0 ? (
+          <ul>
+            {result.files.map((file) => (
+              <li key={file.path}>
+                <strong>{file.path}</strong> - {file.purpose} {file.ready ? "(ready as preview)" : "(needs input)"}
+                <BriefingList title="Outline" items={file.outline} />
+                {file.sampleSnippet ? <code>{file.sampleSnippet}</code> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No file previews returned because the selected candidates are blocked or manual-only.</p>
+        )}
+      </div>
+      <AnalysisList title="Dependencies" items={result.dependencies.map((dependency) => `${dependency.name}: ${dependency.purpose}${dependency.required ? " (required)" : ""}`)} />
+      <AnalysisList title="Gaps" items={result.gaps.map((gap) => `${gap.code}: ${gap.message} (${gap.severity})`)} />
+      <AnalysisList title="Warnings" items={result.warnings} />
       <p className="trust-note">{result.disclaimer}</p>
     </div>
   );

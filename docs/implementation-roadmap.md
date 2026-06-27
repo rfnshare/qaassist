@@ -29,10 +29,7 @@
 - 0025 Export/package review output.
 - 0026 Story/bug write-back helpers.
 - 0027 Broader AI-assisted refinement rollout.
-
-## 0028 Optional Automation Generation Scaffold
-
-Design a reviewed scaffold for future automation generation without default repo writes, framework generation, or CI changes.
+- 0028 Optional automation generation scaffold.
 
 ## 0029 Team Reporting/Analytics
 
@@ -45,6 +42,10 @@ Add final-confirmation submission routes for selected helper previews after auth
 ## 0031 Cross-Story Board Intelligence
 
 Explore board-level patterns across stories only after privacy, evidence scope, and persistence boundaries are designed.
+
+## 0032 Optional Repo Export/Apply Flow
+
+Design an explicit, reviewable way to export or apply generated automation artifacts only after file, repo, and approval boundaries are defined.
 
 ## Later Story Workspace Requirement Discussion
 

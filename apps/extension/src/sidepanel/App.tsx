@@ -21,6 +21,7 @@ import type {
   ReviewedTestCase,
   TestCaseDraft,
   TestCaseReviewSession,
+  TestPlansCreationResult,
   TestPlansReadinessResult,
   TestPlansTargetSettings,
   WorkItemDetail,
@@ -30,6 +31,7 @@ import {
   analyzeStoryRequirements,
   type BoardSummaryPreviewResponse,
   connectAzureDevOps,
+  createTestPlansCases,
   extractBoardKnowledgeText,
   fetchBoardSummaryPreview,
   fetchWorkItemDetail,
@@ -56,6 +58,7 @@ type StoryAnalysisStatus = "idle" | "loading" | "success" | "error";
 type DraftGenerationStatus = "idle" | "loading" | "success" | "error";
 type ReviewStatus = "idle" | "loading" | "success" | "error";
 type TestPlansReadinessStatus = "idle" | "loading" | "success" | "error";
+type TestPlansCreationRequestStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -144,6 +147,11 @@ export function App() {
   const [testPlansReadinessStatus, setTestPlansReadinessStatus] = useState<TestPlansReadinessStatus>("idle");
   const [testPlansReadinessMessage, setTestPlansReadinessMessage] = useState("Validate review decisions before previewing Azure Test Plans readiness.");
   const [testPlansReadiness, setTestPlansReadiness] = useState<TestPlansReadinessResult | null>(null);
+  const [selectedTestPlansCandidateIds, setSelectedTestPlansCandidateIds] = useState<string[]>([]);
+  const [testPlansCreationConfirmed, setTestPlansCreationConfirmed] = useState(false);
+  const [testPlansCreationStatus, setTestPlansCreationStatus] = useState<TestPlansCreationRequestStatus>("idle");
+  const [testPlansCreationMessage, setTestPlansCreationMessage] = useState("Preview readiness, select candidates, then confirm before creating in Azure Test Plans.");
+  const [testPlansCreationResult, setTestPlansCreationResult] = useState<TestPlansCreationResult | null>(null);
   const [draftInputs, setDraftInputs] = useState<Required<TestCaseDraftSelectedInputs>>({
     includePositivePath: true,
     includeNegativePath: true,
@@ -209,6 +217,7 @@ export function App() {
 
   useEffect(() => {
     resetTestPlansReadiness("Test management target changed. Validate review decisions before previewing readiness.");
+    resetTestPlansCreation("Target settings changed. Preview readiness again before creating in Azure Test Plans.");
   }, [settings.testPlanId, settings.testSuiteId, settings.testManagementAreaPath, settings.testManagementIterationPath]);
 
   useEffect(() => {
@@ -396,6 +405,15 @@ export function App() {
     setTestPlansReadiness(null);
     setTestPlansReadinessStatus("idle");
     setTestPlansReadinessMessage(message);
+    setSelectedTestPlansCandidateIds([]);
+    setTestPlansCreationConfirmed(false);
+    resetTestPlansCreation("Preview readiness, select candidates, then confirm before creating in Azure Test Plans.");
+  }
+
+  function resetTestPlansCreation(message: string): void {
+    setTestPlansCreationResult(null);
+    setTestPlansCreationStatus("idle");
+    setTestPlansCreationMessage(message);
   }
 
   function updateReviewCases(nextReviewCases: ReviewedTestCase[]): void {
@@ -496,10 +514,67 @@ export function App() {
       setTestPlansReadiness(result);
       setTestPlansReadinessStatus("success");
       setTestPlansReadinessMessage("Readiness preview generated. Nothing was created or updated in Azure Test Plans.");
+      setSelectedTestPlansCandidateIds([]);
+      setTestPlansCreationConfirmed(false);
+      resetTestPlansCreation("Select readiness candidates and confirm before creating in Azure Test Plans.");
     } catch (error) {
       setTestPlansReadiness(null);
       setTestPlansReadinessStatus("error");
       setTestPlansReadinessMessage(error instanceof Error ? error.message : "Azure Test Plans readiness preview failed.");
+      setSelectedTestPlansCandidateIds([]);
+      setTestPlansCreationConfirmed(false);
+      resetTestPlansCreation("Preview readiness before creating in Azure Test Plans.");
+    }
+  }
+
+  function updateSelectedTestPlansCandidateIds(candidateIds: string[]): void {
+    setSelectedTestPlansCandidateIds(candidateIds);
+    setTestPlansCreationConfirmed(false);
+    resetTestPlansCreation("Candidate selection changed. Confirm again before creating selected test cases.");
+  }
+
+  async function createSelectedAzureTestPlansCases(): Promise<void> {
+    if (!testPlansReadiness) {
+      setTestPlansCreationStatus("error");
+      setTestPlansCreationMessage("Preview readiness before creating in Azure Test Plans.");
+      return;
+    }
+
+    if (selectedTestPlansCandidateIds.length === 0) {
+      setTestPlansCreationStatus("error");
+      setTestPlansCreationMessage("Select at least one readiness candidate before creating in Azure Test Plans.");
+      return;
+    }
+
+    if (!testPlansCreationConfirmed) {
+      setTestPlansCreationStatus("error");
+      setTestPlansCreationMessage("Final confirmation is required before Azure Test Plans creation.");
+      return;
+    }
+
+    setTestPlansCreationStatus("loading");
+    setTestPlansCreationMessage("Creating only the selected test cases in Azure Test Plans...");
+
+    try {
+      const result = await createTestPlansCases(settings.apiBaseUrl, {
+        readinessResult: testPlansReadiness,
+        selectedCandidateIds: selectedTestPlansCandidateIds,
+        confirmation: {
+          confirmedByUser: true,
+          confirmationText: "I confirm QA Assist should create only the selected test cases in Azure Test Plans.",
+          confirmedAt: new Date().toISOString()
+        }
+      });
+
+      setTestPlansCreationResult(result);
+      setTestPlansCreationStatus("success");
+      setTestPlansCreationConfirmed(false);
+      setTestPlansCreationMessage("Azure Test Plans creation completed for the explicit selection. Review created, failed, and skipped items.");
+    } catch (error) {
+      setTestPlansCreationResult(null);
+      setTestPlansCreationStatus("error");
+      setTestPlansCreationConfirmed(false);
+      setTestPlansCreationMessage(error instanceof Error ? error.message : "Azure Test Plans creation failed.");
     }
   }
 
@@ -549,6 +624,11 @@ export function App() {
           testPlansReadinessStatus,
           testPlansReadinessMessage,
           testPlansReadiness,
+          selectedTestPlansCandidateIds,
+          testPlansCreationConfirmed,
+          testPlansCreationStatus,
+          testPlansCreationMessage,
+          testPlansCreationResult,
           draftInputs,
           setDraftInputs,
           selectedKnowledgeSourceIds,
@@ -564,6 +644,9 @@ export function App() {
           onGenerateDraftCases: generateDraftCases,
           onValidateReviewDecisions: validateReviewDecisions,
           onPreviewTestPlansReadiness: previewAzureTestPlansReadiness,
+          onSelectedTestPlansCandidateIdsChange: updateSelectedTestPlansCandidateIds,
+          onTestPlansCreationConfirmedChange: setTestPlansCreationConfirmed,
+          onCreateSelectedTestPlansCases: createSelectedAzureTestPlansCases,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -612,6 +695,11 @@ function renderPanel(props: {
   testPlansReadinessStatus: TestPlansReadinessStatus;
   testPlansReadinessMessage: string;
   testPlansReadiness: TestPlansReadinessResult | null;
+  selectedTestPlansCandidateIds: string[];
+  testPlansCreationConfirmed: boolean;
+  testPlansCreationStatus: TestPlansCreationRequestStatus;
+  testPlansCreationMessage: string;
+  testPlansCreationResult: TestPlansCreationResult | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -627,6 +715,9 @@ function renderPanel(props: {
   onGenerateDraftCases: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
+  onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
+  onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
+  onCreateSelectedTestPlansCases: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -668,6 +759,11 @@ function renderPanel(props: {
           testPlansReadinessStatus={props.testPlansReadinessStatus}
           testPlansReadinessMessage={props.testPlansReadinessMessage}
           testPlansReadiness={props.testPlansReadiness}
+          selectedTestPlansCandidateIds={props.selectedTestPlansCandidateIds}
+          testPlansCreationConfirmed={props.testPlansCreationConfirmed}
+          testPlansCreationStatus={props.testPlansCreationStatus}
+          testPlansCreationMessage={props.testPlansCreationMessage}
+          testPlansCreationResult={props.testPlansCreationResult}
           draftInputs={props.draftInputs}
           setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
@@ -682,6 +778,9 @@ function renderPanel(props: {
           onGenerateDraftCases={props.onGenerateDraftCases}
           onValidateReviewDecisions={props.onValidateReviewDecisions}
           onPreviewTestPlansReadiness={props.onPreviewTestPlansReadiness}
+          onSelectedTestPlansCandidateIdsChange={props.onSelectedTestPlansCandidateIdsChange}
+          onTestPlansCreationConfirmedChange={props.onTestPlansCreationConfirmedChange}
+          onCreateSelectedTestPlansCases={props.onCreateSelectedTestPlansCases}
         />
       );
     case "run":
@@ -801,6 +900,11 @@ function StoryPanel({
   testPlansReadinessStatus,
   testPlansReadinessMessage,
   testPlansReadiness,
+  selectedTestPlansCandidateIds,
+  testPlansCreationConfirmed,
+  testPlansCreationStatus,
+  testPlansCreationMessage,
+  testPlansCreationResult,
   draftInputs,
   setDraftInputs,
   selectedKnowledgeSourceIds,
@@ -814,7 +918,10 @@ function StoryPanel({
   onAnalyzeStory,
   onGenerateDraftCases,
   onValidateReviewDecisions,
-  onPreviewTestPlansReadiness
+  onPreviewTestPlansReadiness,
+  onSelectedTestPlansCandidateIdsChange,
+  onTestPlansCreationConfirmedChange,
+  onCreateSelectedTestPlansCases
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -836,6 +943,11 @@ function StoryPanel({
   testPlansReadinessStatus: TestPlansReadinessStatus;
   testPlansReadinessMessage: string;
   testPlansReadiness: TestPlansReadinessResult | null;
+  selectedTestPlansCandidateIds: string[];
+  testPlansCreationConfirmed: boolean;
+  testPlansCreationStatus: TestPlansCreationRequestStatus;
+  testPlansCreationMessage: string;
+  testPlansCreationResult: TestPlansCreationResult | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -850,6 +962,9 @@ function StoryPanel({
   onGenerateDraftCases: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
+  onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
+  onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
+  onCreateSelectedTestPlansCases: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -919,11 +1034,19 @@ function StoryPanel({
             testPlansReadinessStatus={testPlansReadinessStatus}
             testPlansReadinessMessage={testPlansReadinessMessage}
             testPlansReadiness={testPlansReadiness}
+            selectedTestPlansCandidateIds={selectedTestPlansCandidateIds}
+            testPlansCreationConfirmed={testPlansCreationConfirmed}
+            testPlansCreationStatus={testPlansCreationStatus}
+            testPlansCreationMessage={testPlansCreationMessage}
+            testPlansCreationResult={testPlansCreationResult}
             inputs={draftInputs}
             onInputsChange={setDraftInputs}
             onGenerate={onGenerateDraftCases}
             onValidateReviewDecisions={onValidateReviewDecisions}
             onPreviewTestPlansReadiness={onPreviewTestPlansReadiness}
+            onSelectedTestPlansCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
+            onTestPlansCreationConfirmedChange={onTestPlansCreationConfirmedChange}
+            onCreateSelectedTestPlansCases={onCreateSelectedTestPlansCases}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -1168,11 +1291,19 @@ function TestCaseDraftCard({
   testPlansReadinessStatus,
   testPlansReadinessMessage,
   testPlansReadiness,
+  selectedTestPlansCandidateIds,
+  testPlansCreationConfirmed,
+  testPlansCreationStatus,
+  testPlansCreationMessage,
+  testPlansCreationResult,
   inputs,
   onInputsChange,
   onGenerate,
   onValidateReviewDecisions,
-  onPreviewTestPlansReadiness
+  onPreviewTestPlansReadiness,
+  onSelectedTestPlansCandidateIdsChange,
+  onTestPlansCreationConfirmedChange,
+  onCreateSelectedTestPlansCases
 }: {
   analysis: StoryRequirementAnalysis | null;
   status: DraftGenerationStatus;
@@ -1186,11 +1317,19 @@ function TestCaseDraftCard({
   testPlansReadinessStatus: TestPlansReadinessStatus;
   testPlansReadinessMessage: string;
   testPlansReadiness: TestPlansReadinessResult | null;
+  selectedTestPlansCandidateIds: string[];
+  testPlansCreationConfirmed: boolean;
+  testPlansCreationStatus: TestPlansCreationRequestStatus;
+  testPlansCreationMessage: string;
+  testPlansCreationResult: TestPlansCreationResult | null;
   inputs: Required<TestCaseDraftSelectedInputs>;
   onInputsChange: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   onGenerate: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
+  onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
+  onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
+  onCreateSelectedTestPlansCases: () => void;
 }) {
   function toggleInput(key: keyof Required<TestCaseDraftSelectedInputs>): void {
     onInputsChange({ ...inputs, [key]: !inputs[key] });
@@ -1228,6 +1367,14 @@ function TestCaseDraftCard({
           readinessMessage={testPlansReadinessMessage}
           readiness={testPlansReadiness}
           onPreviewReadiness={onPreviewTestPlansReadiness}
+          selectedCandidateIds={selectedTestPlansCandidateIds}
+          creationConfirmed={testPlansCreationConfirmed}
+          creationStatus={testPlansCreationStatus}
+          creationMessage={testPlansCreationMessage}
+          creationResult={testPlansCreationResult}
+          onSelectedCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
+          onCreationConfirmedChange={onTestPlansCreationConfirmedChange}
+          onCreateSelected={onCreateSelectedTestPlansCases}
         />
       ) : null}
     </article>
@@ -1256,7 +1403,15 @@ function TestCaseDraftResult({
   readinessStatus,
   readinessMessage,
   readiness,
-  onPreviewReadiness
+  onPreviewReadiness,
+  selectedCandidateIds,
+  creationConfirmed,
+  creationStatus,
+  creationMessage,
+  creationResult,
+  onSelectedCandidateIdsChange,
+  onCreationConfirmedChange,
+  onCreateSelected
 }: {
   result: TestCaseDraftGenerationResult;
   reviewCases: ReviewedTestCase[];
@@ -1269,6 +1424,14 @@ function TestCaseDraftResult({
   readinessMessage: string;
   readiness: TestPlansReadinessResult | null;
   onPreviewReadiness: () => void;
+  selectedCandidateIds: string[];
+  creationConfirmed: boolean;
+  creationStatus: TestPlansCreationRequestStatus;
+  creationMessage: string;
+  creationResult: TestPlansCreationResult | null;
+  onSelectedCandidateIdsChange: (candidateIds: string[]) => void;
+  onCreationConfirmedChange: (confirmed: boolean) => void;
+  onCreateSelected: () => void;
 }) {
   const summary = reviewSession?.summary ?? buildLocalReviewSummary(reviewCases, result.draftCases.length);
 
@@ -1323,6 +1486,14 @@ function TestCaseDraftResult({
           message={readinessMessage}
           readiness={readiness}
           onPreview={onPreviewReadiness}
+          selectedCandidateIds={selectedCandidateIds}
+          creationConfirmed={creationConfirmed}
+          creationStatus={creationStatus}
+          creationMessage={creationMessage}
+          creationResult={creationResult}
+          onSelectedCandidateIdsChange={onSelectedCandidateIdsChange}
+          onCreationConfirmedChange={onCreationConfirmedChange}
+          onCreateSelected={onCreateSelected}
         />
       ) : null}
       <div className="draft-list">
@@ -1345,15 +1516,43 @@ function TestPlansReadinessCard({
   status,
   message,
   readiness,
-  onPreview
+  onPreview,
+  selectedCandidateIds,
+  creationConfirmed,
+  creationStatus,
+  creationMessage,
+  creationResult,
+  onSelectedCandidateIdsChange,
+  onCreationConfirmedChange,
+  onCreateSelected
 }: {
   reviewSession: TestCaseReviewSession;
   status: TestPlansReadinessStatus;
   message: string;
   readiness: TestPlansReadinessResult | null;
   onPreview: () => void;
+  selectedCandidateIds: string[];
+  creationConfirmed: boolean;
+  creationStatus: TestPlansCreationRequestStatus;
+  creationMessage: string;
+  creationResult: TestPlansCreationResult | null;
+  onSelectedCandidateIdsChange: (candidateIds: string[]) => void;
+  onCreationConfirmedChange: (confirmed: boolean) => void;
+  onCreateSelected: () => void;
 }) {
   const hasReadyCases = reviewSession.summary.readyForExport > 0;
+  const canCreate = readiness?.status === "ready-for-confirmation"
+    && selectedCandidateIds.length > 0
+    && creationConfirmed
+    && creationStatus !== "loading";
+
+  function toggleCandidate(candidateId: string): void {
+    onSelectedCandidateIdsChange(
+      selectedCandidateIds.includes(candidateId)
+        ? selectedCandidateIds.filter((id) => id !== candidateId)
+        : [...selectedCandidateIds, candidateId]
+    );
+  }
 
   return (
     <article className="info-card readiness-card">
@@ -1364,7 +1563,7 @@ function TestPlansReadinessCard({
         </span>
       </div>
       <p>Preview only - nothing will be created in Azure.</p>
-      <p>Actual Azure Test Plans creation is not implemented yet. Approved for export means eligible for a future final confirmation step.</p>
+      <p>This will create selected test cases in Azure Test Plans only after final confirmation. Nothing else will be created or updated.</p>
       <SecondaryAction
         label={status === "loading" ? "Previewing readiness..." : "Preview Test Plans readiness"}
         disabled={status === "loading" || !hasReadyCases}
@@ -1385,32 +1584,80 @@ function TestPlansReadinessCard({
               ["Plan/Suite", `${formatOptionalValue(readiness.target.testPlanId)} / ${formatOptionalValue(readiness.target.testSuiteId)}`]
             ]}
           />
-          <ReadinessCandidateList candidates={readiness.candidates} />
+          <ReadinessCandidateList
+            candidates={readiness.candidates}
+            selectedCandidateIds={selectedCandidateIds}
+            onToggleCandidate={toggleCandidate}
+          />
           <ReadinessBlockedList blockedItems={readiness.blockedItems} />
           <AnalysisList title="Warnings" items={readiness.warnings.map((warning) => `${warning.code}: ${warning.message}`)} />
           <AnalysisList title="Required future confirmations" items={readiness.requiredUserConfirmations} />
           <p className="trust-note">{readiness.disclaimer}</p>
+          <article className="info-card creation-card">
+            <div className="card-row">
+              <h4>Final creation confirmation</h4>
+              <span className={creationResult?.status === "created" ? "status-pill success" : creationResult?.status === "partial-success" || creationResult?.status === "failed" ? "status-pill warning" : "status-pill"}>
+                {creationResult?.status ?? "Not created"}
+              </span>
+            </div>
+            <p>Only the selected approved cases will be sent. Blocked and non-selected cases will not be created.</p>
+            <label className="choice-row">
+              <input
+                type="checkbox"
+                checked={creationConfirmed}
+                disabled={readiness.status !== "ready-for-confirmation" || selectedCandidateIds.length === 0 || creationStatus === "loading"}
+                onChange={(event) => onCreationConfirmedChange(event.target.checked)}
+              />
+              <span>
+                <strong>I confirm QA Assist should create only the selected test cases in Azure Test Plans.</strong>
+                <small>No story links, bugs, automation, comments, or database records will be created in this step.</small>
+              </span>
+            </label>
+            <SecondaryAction
+              label={creationStatus === "loading" ? "Creating selected test cases..." : "Create selected in Azure Test Plans"}
+              disabled={!canCreate}
+              onClick={onCreateSelected}
+            />
+            <InfoCard title="Creation status" body={creationMessage} tone={creationStatus === "error" || creationResult?.status === "failed" || creationResult?.status === "partial-success" ? "warning" : "neutral"} />
+            {creationResult ? <TestPlansCreationResultView result={creationResult} /> : null}
+          </article>
         </div>
       ) : null}
     </article>
   );
 }
 
-function ReadinessCandidateList({ candidates }: { candidates: TestPlansReadinessResult["candidates"] }) {
+function ReadinessCandidateList({
+  candidates,
+  selectedCandidateIds,
+  onToggleCandidate
+}: {
+  candidates: TestPlansReadinessResult["candidates"];
+  selectedCandidateIds: string[];
+  onToggleCandidate: (candidateId: string) => void;
+}) {
   if (candidates.length === 0) {
     return <AnalysisList title="Export candidates" items={[]} />;
   }
 
   return (
     <div className="analysis-list readiness-list">
-      <span>Export candidates</span>
-      <ul>
+      <span>Export candidates - none selected by default</span>
+      <div className="choice-list">
         {candidates.map((candidate) => (
-          <li key={candidate.originalDraftId}>
-            {candidate.title} ({candidate.stepsCount} steps, {candidate.evidenceLinkCount} evidence links)
-          </li>
+          <label key={candidate.originalDraftId} className="choice-row">
+            <input
+              type="checkbox"
+              checked={selectedCandidateIds.includes(candidate.reviewedCaseId)}
+              onChange={() => onToggleCandidate(candidate.reviewedCaseId)}
+            />
+            <span>
+              <strong>{candidate.title}</strong>
+              <small>{candidate.stepsCount} steps | {candidate.evidenceLinkCount} evidence links | {candidate.warningCount} warnings</small>
+            </span>
+          </label>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
@@ -1430,6 +1677,35 @@ function ReadinessBlockedList({ blockedItems }: { blockedItems: TestPlansReadine
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function TestPlansCreationResultView({ result }: { result: TestPlansCreationResult }) {
+  return (
+    <div className="creation-result">
+      <InfoGrid
+        items={[
+          ["Mode", result.mode],
+          ["Completed", formatDateTime(result.completedAt)],
+          ["Created", String(result.createdItems.length)],
+          ["Failed", String(result.failedItems.length)],
+          ["Skipped", String(result.skippedItems.length)]
+        ]}
+      />
+      <AnalysisList
+        title="Created items"
+        items={result.createdItems.map((item) => `#${item.azureWorkItemId} - ${item.title}`)}
+      />
+      <AnalysisList
+        title="Failed items"
+        items={result.failedItems.map((item) => `${item.title}: ${item.reason}`)}
+      />
+      <AnalysisList
+        title="Skipped items"
+        items={result.skippedItems.map((item) => `${item.title}: ${item.reason}`)}
+      />
+      <p className="trust-note">{result.disclaimer}</p>
     </div>
   );
 }

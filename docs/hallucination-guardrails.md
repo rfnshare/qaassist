@@ -28,4 +28,5 @@ QA Assist should be evidence-bound and human-approved. It should not claim certa
 - Step 0019 draft test cases must cite evidence links, preserve uncertainty labels, warn when evidence is weak/missing, and remain draft-only until QA approves them.
 - Step 0020 lets QA edit and approve drafts for later export, but approved-for-export still does not mean created in Azure Test Plans. Rejected and blocked cases are not export-ready. Evidence links and warnings must remain visible while reviewing.
 - Step 0021 readiness preview can say a case is eligible for future Azure Test Plans creation, but it must also show blocked items, missing settings, required future confirmations, and the preview-only disclaimer. It must not imply that anything was sent to Azure.
-- Test cases must not be treated as final until a later explicit export/write-back workflow exists.
+- Step 0022 creation results must say exactly which selected test cases were created, failed, or skipped. Do not imply non-selected cases, blocked cases, story links, bugs, automation, or comments were created.
+- Test cases must not be treated as final outside Azure Test Plans until reviewed and confirmed by the QA user.

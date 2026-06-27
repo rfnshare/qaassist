@@ -18,6 +18,8 @@ import type {
   TestCaseDraftGenerationResult,
   TestCaseReviewNormalizationRequest,
   TestCaseReviewNormalizationResult,
+  TestPlansCreationRequest,
+  TestPlansCreationResult,
   TestPlansReadinessRequest,
   TestPlansReadinessResult,
   WorkItemDetail,
@@ -102,6 +104,13 @@ export async function previewTestPlansReadiness(
   input: TestPlansReadinessRequest
 ): Promise<TestPlansReadinessResult> {
   return postJson(apiBaseUrl, "/test-plans/readiness/preview", input);
+}
+
+export async function createTestPlansCases(
+  apiBaseUrl: string,
+  input: TestPlansCreationRequest
+): Promise<TestPlansCreationResult> {
+  return postJson(apiBaseUrl, "/test-plans/create", input);
 }
 
 export async function validateBoardKnowledgeSource(

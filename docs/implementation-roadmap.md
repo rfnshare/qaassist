@@ -23,10 +23,7 @@
 - 0019 Deterministic test case draft generation from confirmed evidence.
 - 0020 Test case review/edit workflow.
 - 0021 Azure Test Plans write-back readiness preview.
-
-## 0022 Azure Test Plans Explicit Creation Approval Flow
-
-Add the explicit final confirmation flow for Azure Test Plans creation. This must remain backend-mediated, auditable, and disabled until the user confirms the exact candidates and destination.
+- 0022 Azure Test Plans explicit creation approval flow.
 
 ## 0023 Optional Backend LLM Provider Adapter
 
@@ -39,6 +36,10 @@ Map approved test cases to manual, API, UI, or future Playwright automation cand
 ## 0025 Export/Package Review Output
 
 Package reviewed local/session output for copy/export review without silent write-back.
+
+## 0026 Story/Bug Write-Back Helpers
+
+Add reviewed helper flows for story comments, bug creation, and traceability links only after explicit user confirmation.
 
 ## Later Story Workspace Requirement Discussion
 

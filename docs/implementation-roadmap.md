@@ -28,10 +28,7 @@
 - 0024 Automation candidate mapping.
 - 0025 Export/package review output.
 - 0026 Story/bug write-back helpers.
-
-## 0027 Broader AI-Assisted Refinement Rollout
-
-Expand backend-mediated LLM assistance to board briefing, draft refinement, and review support after prompt/versioning, audit, and confirmation guardrails are designed.
+- 0027 Broader AI-assisted refinement rollout.
 
 ## 0028 Optional Automation Generation Scaffold
 
@@ -44,6 +41,10 @@ Summarize team-level QA activity only after privacy, scope, and persistence rule
 ## 0030 Explicit Azure DevOps Write-Back Submission Flow
 
 Add final-confirmation submission routes for selected helper previews after auth, permissions, audit, and rollback behavior are designed.
+
+## 0031 Cross-Story Board Intelligence
+
+Explore board-level patterns across stories only after privacy, evidence scope, and persistence boundaries are designed.
 
 ## Later Story Workspace Requirement Discussion
 

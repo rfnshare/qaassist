@@ -6,6 +6,7 @@ import type {
   AzureDevOpsConnectionStatus,
   AzureDevOpsProjectOption,
   AzureDevOpsTeamOption,
+  AiRefinementResult,
   AutomationCandidateMappingResult,
   AutomationMappingOptions,
   BoardBriefing,
@@ -53,6 +54,7 @@ import {
   normalizeReviewedTestCases,
   previewTestPlansReadiness,
   previewWritebackHelper,
+  requestAiRefinement,
   requestStoryAnalysisAssist,
   summarizeBoardKnowledge,
   validateBoardKnowledgeSource
@@ -183,6 +185,15 @@ export function App() {
   const [aiAssistStatus, setAiAssistStatus] = useState<AiAssistStatus>("idle");
   const [aiAssistMessage, setAiAssistMessage] = useState("Run deterministic Story analysis first.");
   const [aiAssistResult, setAiAssistResult] = useState<StoryAnalysisAssistResult | null>(null);
+  const [draftRefinementStatus, setDraftRefinementStatus] = useState<AiAssistStatus>("idle");
+  const [draftRefinementMessage, setDraftRefinementMessage] = useState("Generate draft cases before requesting AI refinement.");
+  const [draftRefinementResult, setDraftRefinementResult] = useState<AiRefinementResult | null>(null);
+  const [automationRefinementStatus, setAutomationRefinementStatus] = useState<AiAssistStatus>("idle");
+  const [automationRefinementMessage, setAutomationRefinementMessage] = useState("Map automation candidates before requesting AI refinement.");
+  const [automationRefinementResult, setAutomationRefinementResult] = useState<AiRefinementResult | null>(null);
+  const [writebackRefinementStatus, setWritebackRefinementStatus] = useState<AiAssistStatus>("idle");
+  const [writebackRefinementMessage, setWritebackRefinementMessage] = useState("Preview a write-back helper before requesting AI wording refinement.");
+  const [writebackRefinementResult, setWritebackRefinementResult] = useState<AiRefinementResult | null>(null);
   const [draftStatus, setDraftStatus] = useState<DraftGenerationStatus>("idle");
   const [draftMessage, setDraftMessage] = useState("Analyze requirements before drafting test cases.");
   const [draftResult, setDraftResult] = useState<TestCaseDraftGenerationResult | null>(null);
@@ -300,6 +311,8 @@ export function App() {
     setDraftResult(null);
     setDraftStatus("idle");
     setDraftMessage("Analyze requirements before drafting test cases.");
+    resetDraftRefinement("Story detail changed. Generate draft cases before requesting AI refinement.");
+    resetDraftRefinement("Story context changed. Generate draft cases before requesting AI refinement.");
     resetTestCaseReviewState("Generate draft cases before review.");
     resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
     resetAutomationMapping("Validate review decisions before mapping automation candidates.");
@@ -480,6 +493,7 @@ export function App() {
       setDraftResult(null);
       setDraftStatus("idle");
       setDraftMessage("Analysis is ready. Draft cases are still not generated.");
+      resetDraftRefinement("Story analysis changed. Generate draft cases before requesting AI refinement.");
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
@@ -493,6 +507,7 @@ export function App() {
       setDraftResult(null);
       setDraftStatus("idle");
       setDraftMessage("Analyze requirements before drafting test cases.");
+      resetDraftRefinement("Story analysis failed. Generate draft cases before requesting AI refinement.");
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
@@ -515,6 +530,24 @@ export function App() {
     setAiAssistResult(null);
     setAiAssistStatus("idle");
     setAiAssistMessage(message);
+  }
+
+  function resetDraftRefinement(message: string): void {
+    setDraftRefinementResult(null);
+    setDraftRefinementStatus("idle");
+    setDraftRefinementMessage(message);
+  }
+
+  function resetAutomationRefinement(message: string): void {
+    setAutomationRefinementResult(null);
+    setAutomationRefinementStatus("idle");
+    setAutomationRefinementMessage(message);
+  }
+
+  function resetWritebackRefinement(message: string): void {
+    setWritebackRefinementResult(null);
+    setWritebackRefinementStatus("idle");
+    setWritebackRefinementMessage(message);
   }
 
   async function requestAiAssist(): Promise<void> {
@@ -548,6 +581,104 @@ export function App() {
     }
   }
 
+  async function requestDraftCaseRefinement(): Promise<void> {
+    if (!draftResult) {
+      setDraftRefinementStatus("error");
+      setDraftRefinementMessage("Generate deterministic draft cases first.");
+      return;
+    }
+
+    if (llmProviderStatus?.availability !== "available") {
+      setDraftRefinementStatus("error");
+      setDraftRefinementMessage(llmProviderStatus?.reason ?? "AI provider is disabled or misconfigured on the backend.");
+      return;
+    }
+
+    setDraftRefinementStatus("loading");
+    setDraftRefinementMessage("Requesting AI refinement for draft cases...");
+
+    try {
+      const result = await requestAiRefinement(settings.apiBaseUrl, {
+        target: "draft-test-cases",
+        deterministicInput: draftResult,
+        contextSummary: storyAnalysis?.headline,
+        reviewedSessionSummary: reviewSession ? `Reviewed ${reviewSession.summary.totalReviewed} case(s); ${reviewSession.summary.readyForExport} ready for later export.` : undefined
+      });
+      setDraftRefinementResult(result);
+      setDraftRefinementStatus("success");
+      setDraftRefinementMessage("AI draft case refinements returned. Apply manually only after QA review.");
+    } catch (error) {
+      setDraftRefinementResult(null);
+      setDraftRefinementStatus("error");
+      setDraftRefinementMessage(error instanceof Error ? error.message : "AI draft case refinement failed.");
+    }
+  }
+
+  async function requestAutomationRefinement(): Promise<void> {
+    if (!automationMappingResult) {
+      setAutomationRefinementStatus("error");
+      setAutomationRefinementMessage("Map deterministic automation candidates first.");
+      return;
+    }
+
+    if (llmProviderStatus?.availability !== "available") {
+      setAutomationRefinementStatus("error");
+      setAutomationRefinementMessage(llmProviderStatus?.reason ?? "AI provider is disabled or misconfigured on the backend.");
+      return;
+    }
+
+    setAutomationRefinementStatus("loading");
+    setAutomationRefinementMessage("Requesting AI refinement for automation mapping...");
+
+    try {
+      const result = await requestAiRefinement(settings.apiBaseUrl, {
+        target: "automation-candidates",
+        deterministicInput: automationMappingResult,
+        contextSummary: "Refine rationale, blockers, and starting points. Do not generate automation code."
+      });
+      setAutomationRefinementResult(result);
+      setAutomationRefinementStatus("success");
+      setAutomationRefinementMessage("AI automation refinements returned. No code was generated.");
+    } catch (error) {
+      setAutomationRefinementResult(null);
+      setAutomationRefinementStatus("error");
+      setAutomationRefinementMessage(error instanceof Error ? error.message : "AI automation refinement failed.");
+    }
+  }
+
+  async function requestWritebackRefinement(): Promise<void> {
+    if (!writebackPreviewResult) {
+      setWritebackRefinementStatus("error");
+      setWritebackRefinementMessage("Preview a write-back helper first.");
+      return;
+    }
+
+    if (llmProviderStatus?.availability !== "available") {
+      setWritebackRefinementStatus("error");
+      setWritebackRefinementMessage(llmProviderStatus?.reason ?? "AI provider is disabled or misconfigured on the backend.");
+      return;
+    }
+
+    setWritebackRefinementStatus("loading");
+    setWritebackRefinementMessage("Requesting AI wording refinement for the preview helper...");
+
+    try {
+      const result = await requestAiRefinement(settings.apiBaseUrl, {
+        target: "writeback-helper",
+        deterministicInput: writebackPreviewResult,
+        contextSummary: "Refine wording only. Do not submit or create anything.",
+        userPromptNote: writebackUserNotes
+      });
+      setWritebackRefinementResult(result);
+      setWritebackRefinementStatus("success");
+      setWritebackRefinementMessage("AI write-back wording suggestions returned. Nothing was submitted.");
+    } catch (error) {
+      setWritebackRefinementResult(null);
+      setWritebackRefinementStatus("error");
+      setWritebackRefinementMessage(error instanceof Error ? error.message : "AI write-back refinement failed.");
+    }
+  }
+
   function resetTestPlansReadiness(message: string): void {
     setTestPlansReadiness(null);
     setTestPlansReadinessStatus("idle");
@@ -567,6 +698,7 @@ export function App() {
     setAutomationMappingResult(null);
     setAutomationMappingStatus("idle");
     setAutomationMappingMessage(message);
+    resetAutomationRefinement("Automation mapping changed. Request AI refinement after a fresh mapping.");
     resetReviewExport("Automation mapping changed. Generate a fresh export package when ready.");
   }
 
@@ -581,6 +713,7 @@ export function App() {
     setWritebackPreviewResult(null);
     setWritebackPreviewStatus("idle");
     setWritebackPreviewMessage(message);
+    resetWritebackRefinement("Write-back helper changed. Request AI wording refinement after a fresh preview.");
   }
 
   function updateReviewCases(nextReviewCases: ReviewedTestCase[]): void {
@@ -609,6 +742,7 @@ export function App() {
       });
 
       setDraftResult(result);
+      resetDraftRefinement("Draft cases changed. Request AI refinement only if useful.");
       setReviewCases(result.draftCases.map(createReviewedCaseFromDraft));
       setReviewSession(null);
       setReviewStatus("idle");
@@ -621,6 +755,7 @@ export function App() {
       setDraftMessage("Draft cases generated. QA review is required before use.");
     } catch (error) {
       setDraftResult(null);
+      resetDraftRefinement("Draft generation failed. Generate draft cases before requesting AI refinement.");
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
       resetAutomationMapping("Validate review decisions before mapping automation candidates.");
@@ -974,6 +1109,9 @@ export function App() {
           draftStatus,
           draftMessage,
           draftResult,
+          draftRefinementStatus,
+          draftRefinementMessage,
+          draftRefinementResult,
           reviewCases,
           setReviewCases: updateReviewCases,
           reviewStatus,
@@ -992,6 +1130,9 @@ export function App() {
           automationMappingResult,
           automationMappingOptions,
           setAutomationMappingOptions,
+          automationRefinementStatus,
+          automationRefinementMessage,
+          automationRefinementResult,
           reviewExportStatus,
           reviewExportMessage,
           reviewExportResult,
@@ -1014,6 +1155,9 @@ export function App() {
           setWritebackAttachmentContentType: updateWritebackAttachmentContentType,
           writebackAttachmentSizeBytes,
           setWritebackAttachmentSizeBytes: updateWritebackAttachmentSizeBytes,
+          writebackRefinementStatus,
+          writebackRefinementMessage,
+          writebackRefinementResult,
           draftInputs,
           setDraftInputs,
           selectedKnowledgeSourceIds,
@@ -1028,14 +1172,17 @@ export function App() {
           onAnalyzeStory: analyzeStory,
           onRequestAiAssist: requestAiAssist,
           onGenerateDraftCases: generateDraftCases,
+          onRequestDraftRefinement: requestDraftCaseRefinement,
           onValidateReviewDecisions: validateReviewDecisions,
           onPreviewTestPlansReadiness: previewAzureTestPlansReadiness,
           onSelectedTestPlansCandidateIdsChange: updateSelectedTestPlansCandidateIds,
           onTestPlansCreationConfirmedChange: setTestPlansCreationConfirmed,
           onCreateSelectedTestPlansCases: createSelectedAzureTestPlansCases,
           onMapAutomationCandidates: mapReviewedAutomationCandidates,
+          onRequestAutomationRefinement: requestAutomationRefinement,
           onGenerateReviewExport: generateReviewExportPackage,
           onPreviewWritebackHelper: previewSelectedWritebackHelper,
+          onRequestWritebackRefinement: requestWritebackRefinement,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -1081,6 +1228,9 @@ function renderPanel(props: {
   draftStatus: DraftGenerationStatus;
   draftMessage: string;
   draftResult: TestCaseDraftGenerationResult | null;
+  draftRefinementStatus: AiAssistStatus;
+  draftRefinementMessage: string;
+  draftRefinementResult: AiRefinementResult | null;
   reviewCases: ReviewedTestCase[];
   setReviewCases: (reviewCases: ReviewedTestCase[]) => void;
   reviewStatus: ReviewStatus;
@@ -1099,6 +1249,9 @@ function renderPanel(props: {
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
+  automationRefinementStatus: AiAssistStatus;
+  automationRefinementMessage: string;
+  automationRefinementResult: AiRefinementResult | null;
   reviewExportStatus: ReviewExportStatus;
   reviewExportMessage: string;
   reviewExportResult: ReviewExportResult | null;
@@ -1121,6 +1274,9 @@ function renderPanel(props: {
   setWritebackAttachmentContentType: (contentType: string) => void;
   writebackAttachmentSizeBytes: string;
   setWritebackAttachmentSizeBytes: (sizeBytes: string) => void;
+  writebackRefinementStatus: AiAssistStatus;
+  writebackRefinementMessage: string;
+  writebackRefinementResult: AiRefinementResult | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -1135,14 +1291,17 @@ function renderPanel(props: {
   onAnalyzeStory: () => void;
   onRequestAiAssist: () => void;
   onGenerateDraftCases: () => void;
+  onRequestDraftRefinement: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
   onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onRequestAutomationRefinement: () => void;
   onGenerateReviewExport: () => void;
   onPreviewWritebackHelper: () => void;
+  onRequestWritebackRefinement: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -1180,6 +1339,9 @@ function renderPanel(props: {
           draftStatus={props.draftStatus}
           draftMessage={props.draftMessage}
           draftResult={props.draftResult}
+          draftRefinementStatus={props.draftRefinementStatus}
+          draftRefinementMessage={props.draftRefinementMessage}
+          draftRefinementResult={props.draftRefinementResult}
           reviewCases={props.reviewCases}
           setReviewCases={props.setReviewCases}
           reviewStatus={props.reviewStatus}
@@ -1198,6 +1360,9 @@ function renderPanel(props: {
           automationMappingResult={props.automationMappingResult}
           automationMappingOptions={props.automationMappingOptions}
           setAutomationMappingOptions={props.setAutomationMappingOptions}
+          automationRefinementStatus={props.automationRefinementStatus}
+          automationRefinementMessage={props.automationRefinementMessage}
+          automationRefinementResult={props.automationRefinementResult}
           reviewExportStatus={props.reviewExportStatus}
           reviewExportMessage={props.reviewExportMessage}
           reviewExportResult={props.reviewExportResult}
@@ -1220,6 +1385,9 @@ function renderPanel(props: {
           setWritebackAttachmentContentType={props.setWritebackAttachmentContentType}
           writebackAttachmentSizeBytes={props.writebackAttachmentSizeBytes}
           setWritebackAttachmentSizeBytes={props.setWritebackAttachmentSizeBytes}
+          writebackRefinementStatus={props.writebackRefinementStatus}
+          writebackRefinementMessage={props.writebackRefinementMessage}
+          writebackRefinementResult={props.writebackRefinementResult}
           draftInputs={props.draftInputs}
           setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
@@ -1233,14 +1401,17 @@ function renderPanel(props: {
           onAnalyzeStory={props.onAnalyzeStory}
           onRequestAiAssist={props.onRequestAiAssist}
           onGenerateDraftCases={props.onGenerateDraftCases}
+          onRequestDraftRefinement={props.onRequestDraftRefinement}
           onValidateReviewDecisions={props.onValidateReviewDecisions}
           onPreviewTestPlansReadiness={props.onPreviewTestPlansReadiness}
           onSelectedTestPlansCandidateIdsChange={props.onSelectedTestPlansCandidateIdsChange}
           onTestPlansCreationConfirmedChange={props.onTestPlansCreationConfirmedChange}
           onCreateSelectedTestPlansCases={props.onCreateSelectedTestPlansCases}
           onMapAutomationCandidates={props.onMapAutomationCandidates}
+          onRequestAutomationRefinement={props.onRequestAutomationRefinement}
           onGenerateReviewExport={props.onGenerateReviewExport}
           onPreviewWritebackHelper={props.onPreviewWritebackHelper}
+          onRequestWritebackRefinement={props.onRequestWritebackRefinement}
         />
       );
     case "run":
@@ -1358,6 +1529,9 @@ function StoryPanel({
   draftStatus,
   draftMessage,
   draftResult,
+  draftRefinementStatus,
+  draftRefinementMessage,
+  draftRefinementResult,
   reviewCases,
   setReviewCases,
   reviewStatus,
@@ -1376,6 +1550,9 @@ function StoryPanel({
   automationMappingResult,
   automationMappingOptions,
   setAutomationMappingOptions,
+  automationRefinementStatus,
+  automationRefinementMessage,
+  automationRefinementResult,
   reviewExportStatus,
   reviewExportMessage,
   reviewExportResult,
@@ -1398,6 +1575,9 @@ function StoryPanel({
   setWritebackAttachmentContentType,
   writebackAttachmentSizeBytes,
   setWritebackAttachmentSizeBytes,
+  writebackRefinementStatus,
+  writebackRefinementMessage,
+  writebackRefinementResult,
   draftInputs,
   setDraftInputs,
   selectedKnowledgeSourceIds,
@@ -1411,14 +1591,17 @@ function StoryPanel({
   onAnalyzeStory,
   onRequestAiAssist,
   onGenerateDraftCases,
+  onRequestDraftRefinement,
   onValidateReviewDecisions,
   onPreviewTestPlansReadiness,
   onSelectedTestPlansCandidateIdsChange,
   onTestPlansCreationConfirmedChange,
   onCreateSelectedTestPlansCases,
   onMapAutomationCandidates,
+  onRequestAutomationRefinement,
   onGenerateReviewExport,
-  onPreviewWritebackHelper
+  onPreviewWritebackHelper,
+  onRequestWritebackRefinement
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -1436,6 +1619,9 @@ function StoryPanel({
   draftStatus: DraftGenerationStatus;
   draftMessage: string;
   draftResult: TestCaseDraftGenerationResult | null;
+  draftRefinementStatus: AiAssistStatus;
+  draftRefinementMessage: string;
+  draftRefinementResult: AiRefinementResult | null;
   reviewCases: ReviewedTestCase[];
   setReviewCases: (reviewCases: ReviewedTestCase[]) => void;
   reviewStatus: ReviewStatus;
@@ -1454,6 +1640,9 @@ function StoryPanel({
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
+  automationRefinementStatus: AiAssistStatus;
+  automationRefinementMessage: string;
+  automationRefinementResult: AiRefinementResult | null;
   reviewExportStatus: ReviewExportStatus;
   reviewExportMessage: string;
   reviewExportResult: ReviewExportResult | null;
@@ -1476,6 +1665,9 @@ function StoryPanel({
   setWritebackAttachmentContentType: (contentType: string) => void;
   writebackAttachmentSizeBytes: string;
   setWritebackAttachmentSizeBytes: (sizeBytes: string) => void;
+  writebackRefinementStatus: AiAssistStatus;
+  writebackRefinementMessage: string;
+  writebackRefinementResult: AiRefinementResult | null;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -1489,14 +1681,17 @@ function StoryPanel({
   onAnalyzeStory: () => void;
   onRequestAiAssist: () => void;
   onGenerateDraftCases: () => void;
+  onRequestDraftRefinement: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
   onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onRequestAutomationRefinement: () => void;
   onGenerateReviewExport: () => void;
   onPreviewWritebackHelper: () => void;
+  onRequestWritebackRefinement: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -1563,6 +1758,10 @@ function StoryPanel({
             status={draftStatus}
             message={draftMessage}
             result={draftResult}
+            refinementStatus={draftRefinementStatus}
+            refinementMessage={draftRefinementMessage}
+            refinementResult={draftRefinementResult}
+            llmProviderStatus={llmProviderStatus}
             reviewCases={reviewCases}
             onReviewCasesChange={setReviewCases}
             reviewStatus={reviewStatus}
@@ -1581,15 +1780,20 @@ function StoryPanel({
             automationMappingResult={automationMappingResult}
             automationMappingOptions={automationMappingOptions}
             onAutomationMappingOptionsChange={setAutomationMappingOptions}
+            automationRefinementStatus={automationRefinementStatus}
+            automationRefinementMessage={automationRefinementMessage}
+            automationRefinementResult={automationRefinementResult}
             inputs={draftInputs}
             onInputsChange={setDraftInputs}
             onGenerate={onGenerateDraftCases}
+            onRequestDraftRefinement={onRequestDraftRefinement}
             onValidateReviewDecisions={onValidateReviewDecisions}
             onPreviewTestPlansReadiness={onPreviewTestPlansReadiness}
             onSelectedTestPlansCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
             onTestPlansCreationConfirmedChange={onTestPlansCreationConfirmedChange}
-          onCreateSelectedTestPlansCases={onCreateSelectedTestPlansCases}
-          onMapAutomationCandidates={onMapAutomationCandidates}
+            onCreateSelectedTestPlansCases={onCreateSelectedTestPlansCases}
+            onMapAutomationCandidates={onMapAutomationCandidates}
+            onRequestAutomationRefinement={onRequestAutomationRefinement}
           />
           <ReviewExportCard
             status={reviewExportStatus}
@@ -1621,6 +1825,10 @@ function StoryPanel({
             attachmentFileName={writebackAttachmentFileName}
             attachmentContentType={writebackAttachmentContentType}
             attachmentSizeBytes={writebackAttachmentSizeBytes}
+            refinementStatus={writebackRefinementStatus}
+            refinementMessage={writebackRefinementMessage}
+            refinementResult={writebackRefinementResult}
+            llmProviderStatus={llmProviderStatus}
             canPreview={hasExportableStoryData({
               workItemDetail: detail,
               storyAnalysis: analysis,
@@ -1638,6 +1846,7 @@ function StoryPanel({
             onAttachmentContentTypeChange={setWritebackAttachmentContentType}
             onAttachmentSizeBytesChange={setWritebackAttachmentSizeBytes}
             onPreview={onPreviewWritebackHelper}
+            onRequestRefinement={onRequestWritebackRefinement}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -1894,6 +2103,79 @@ function AiAssistResultView({ result }: { result: StoryAnalysisAssistResult }) {
   );
 }
 
+function AiRefinementCard({
+  title,
+  status,
+  message,
+  result,
+  llmProviderStatus,
+  canRequest,
+  loadingLabel,
+  actionLabel,
+  onRequest
+}: {
+  title: string;
+  status: AiAssistStatus;
+  message: string;
+  result: AiRefinementResult | null;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
+  canRequest: boolean;
+  loadingLabel: string;
+  actionLabel: string;
+  onRequest: () => void;
+}) {
+  const providerAvailable = llmProviderStatus?.availability === "available";
+
+  return (
+    <article className="info-card ai-assist-card">
+      <div className="card-row">
+        <h4>{title}</h4>
+        <span className={providerAvailable ? "status-pill success" : "status-pill"}>
+          {llmProviderStatus?.availability ?? "unknown"}
+        </span>
+      </div>
+      <p>{message}</p>
+      <SecondaryAction
+        label={status === "loading" ? loadingLabel : actionLabel}
+        disabled={!canRequest || status === "loading" || !providerAvailable}
+        onClick={onRequest}
+      />
+      {!providerAvailable ? (
+        <p className="trust-note">{llmProviderStatus?.reason ?? "AI provider is disabled or misconfigured on the backend. Deterministic output remains available."}</p>
+      ) : null}
+      {result ? <AiRefinementResultView result={result} /> : null}
+    </article>
+  );
+}
+
+function AiRefinementResultView({ result }: { result: AiRefinementResult }) {
+  return (
+    <div className="analysis-body">
+      <InfoGrid
+        items={[
+          ["Mode", result.mode],
+          ["Target", result.target],
+          ["Provider", result.providerSummary.provider],
+          ["Model", result.providerSummary.model ?? "Not returned"],
+          ["Generated", formatDateTime(result.generatedAt)]
+        ]}
+      />
+      {result.sections.map((section) => (
+        <div className="analysis-list" key={`${result.target}-${section.title}`}>
+          <span>{section.title}</span>
+          <p>{section.summary}</p>
+          <BriefingList title="Suggestions" items={section.bullets} />
+          <BriefingList title="Suggested edits" items={section.suggestedEdits.map((edit) => `${edit.field}: ${edit.suggestion}${edit.reason ? ` (${edit.reason})` : ""}`)} />
+          <BriefingList title="Confidence notes" items={section.confidenceNotes} />
+        </div>
+      ))}
+      <AnalysisList title="AI refinement warnings" items={result.warnings.map((warning) => `${warning.code}: ${warning.message}`)} />
+      <p className="trust-note">{result.disclaimer}</p>
+      <p className="trust-note">Apply suggestion manually only after QA review. No deterministic result or external system is updated by this output.</p>
+    </div>
+  );
+}
+
 function StoryAnalysisResult({ analysis }: { analysis: StoryRequirementAnalysis }) {
   return (
     <div className="analysis-body">
@@ -1928,6 +2210,10 @@ function TestCaseDraftCard({
   status,
   message,
   result,
+  refinementStatus,
+  refinementMessage,
+  refinementResult,
+  llmProviderStatus,
   reviewCases,
   onReviewCasesChange,
   reviewStatus,
@@ -1946,20 +2232,29 @@ function TestCaseDraftCard({
   automationMappingResult,
   automationMappingOptions,
   onAutomationMappingOptionsChange,
+  automationRefinementStatus,
+  automationRefinementMessage,
+  automationRefinementResult,
   inputs,
   onInputsChange,
   onGenerate,
+  onRequestDraftRefinement,
   onValidateReviewDecisions,
   onPreviewTestPlansReadiness,
   onSelectedTestPlansCandidateIdsChange,
   onTestPlansCreationConfirmedChange,
   onCreateSelectedTestPlansCases,
-  onMapAutomationCandidates
+  onMapAutomationCandidates,
+  onRequestAutomationRefinement
 }: {
   analysis: StoryRequirementAnalysis | null;
   status: DraftGenerationStatus;
   message: string;
   result: TestCaseDraftGenerationResult | null;
+  refinementStatus: AiAssistStatus;
+  refinementMessage: string;
+  refinementResult: AiRefinementResult | null;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
   reviewCases: ReviewedTestCase[];
   onReviewCasesChange: (reviewCases: ReviewedTestCase[]) => void;
   reviewStatus: ReviewStatus;
@@ -1978,15 +2273,20 @@ function TestCaseDraftCard({
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   onAutomationMappingOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  automationRefinementStatus: AiAssistStatus;
+  automationRefinementMessage: string;
+  automationRefinementResult: AiRefinementResult | null;
   inputs: Required<TestCaseDraftSelectedInputs>;
   onInputsChange: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   onGenerate: () => void;
+  onRequestDraftRefinement: () => void;
   onValidateReviewDecisions: () => void;
   onPreviewTestPlansReadiness: () => void;
   onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
   onMapAutomationCandidates: () => void;
+  onRequestAutomationRefinement: () => void;
 }) {
   function toggleInput(key: keyof Required<TestCaseDraftSelectedInputs>): void {
     onInputsChange({ ...inputs, [key]: !inputs[key] });
@@ -2012,33 +2312,51 @@ function TestCaseDraftCard({
       />
       {!analysis ? <p className="analysis-empty">Analyze requirements before drafting test cases.</p> : null}
       {result ? (
-        <TestCaseDraftResult
-          result={result}
-          reviewCases={reviewCases}
-          onReviewCasesChange={onReviewCasesChange}
-          reviewStatus={reviewStatus}
-          reviewMessage={reviewMessage}
-          reviewSession={reviewSession}
-          onValidateReviewDecisions={onValidateReviewDecisions}
-          readinessStatus={testPlansReadinessStatus}
-          readinessMessage={testPlansReadinessMessage}
-          readiness={testPlansReadiness}
-          onPreviewReadiness={onPreviewTestPlansReadiness}
-          selectedCandidateIds={selectedTestPlansCandidateIds}
-          creationConfirmed={testPlansCreationConfirmed}
-          creationStatus={testPlansCreationStatus}
-          creationMessage={testPlansCreationMessage}
-          creationResult={testPlansCreationResult}
-          onSelectedCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
-          onCreationConfirmedChange={onTestPlansCreationConfirmedChange}
-          onCreateSelected={onCreateSelectedTestPlansCases}
-          automationMappingStatus={automationMappingStatus}
-          automationMappingMessage={automationMappingMessage}
-          automationMappingResult={automationMappingResult}
-          automationMappingOptions={automationMappingOptions}
-          onAutomationMappingOptionsChange={onAutomationMappingOptionsChange}
-          onMapAutomationCandidates={onMapAutomationCandidates}
-        />
+        <>
+          <AiRefinementCard
+            title="AI-assisted draft case refinements"
+            status={refinementStatus}
+            message={refinementMessage}
+            result={refinementResult}
+            llmProviderStatus={llmProviderStatus}
+            canRequest={Boolean(result)}
+            loadingLabel="Requesting draft refinements..."
+            actionLabel="Request AI refinement for draft cases"
+            onRequest={onRequestDraftRefinement}
+          />
+          <TestCaseDraftResult
+            result={result}
+            reviewCases={reviewCases}
+            onReviewCasesChange={onReviewCasesChange}
+            reviewStatus={reviewStatus}
+            reviewMessage={reviewMessage}
+            reviewSession={reviewSession}
+            onValidateReviewDecisions={onValidateReviewDecisions}
+            readinessStatus={testPlansReadinessStatus}
+            readinessMessage={testPlansReadinessMessage}
+            readiness={testPlansReadiness}
+            onPreviewReadiness={onPreviewTestPlansReadiness}
+            selectedCandidateIds={selectedTestPlansCandidateIds}
+            creationConfirmed={testPlansCreationConfirmed}
+            creationStatus={testPlansCreationStatus}
+            creationMessage={testPlansCreationMessage}
+            creationResult={testPlansCreationResult}
+            onSelectedCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
+            onCreationConfirmedChange={onTestPlansCreationConfirmedChange}
+            onCreateSelected={onCreateSelectedTestPlansCases}
+            automationMappingStatus={automationMappingStatus}
+            automationMappingMessage={automationMappingMessage}
+            automationMappingResult={automationMappingResult}
+            automationMappingOptions={automationMappingOptions}
+            onAutomationMappingOptionsChange={onAutomationMappingOptionsChange}
+            automationRefinementStatus={automationRefinementStatus}
+            automationRefinementMessage={automationRefinementMessage}
+            automationRefinementResult={automationRefinementResult}
+            llmProviderStatus={llmProviderStatus}
+            onMapAutomationCandidates={onMapAutomationCandidates}
+            onRequestAutomationRefinement={onRequestAutomationRefinement}
+          />
+        </>
       ) : null}
     </article>
   );
@@ -2080,7 +2398,12 @@ function TestCaseDraftResult({
   automationMappingResult,
   automationMappingOptions,
   onAutomationMappingOptionsChange,
-  onMapAutomationCandidates
+  automationRefinementStatus,
+  automationRefinementMessage,
+  automationRefinementResult,
+  llmProviderStatus,
+  onMapAutomationCandidates,
+  onRequestAutomationRefinement
 }: {
   result: TestCaseDraftGenerationResult;
   reviewCases: ReviewedTestCase[];
@@ -2106,7 +2429,12 @@ function TestCaseDraftResult({
   automationMappingResult: AutomationCandidateMappingResult | null;
   automationMappingOptions: Required<AutomationMappingOptions>;
   onAutomationMappingOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  automationRefinementStatus: AiAssistStatus;
+  automationRefinementMessage: string;
+  automationRefinementResult: AiRefinementResult | null;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
   onMapAutomationCandidates: () => void;
+  onRequestAutomationRefinement: () => void;
 }) {
   const summary = reviewSession?.summary ?? buildLocalReviewSummary(reviewCases, result.draftCases.length);
 
@@ -2178,7 +2506,12 @@ function TestCaseDraftResult({
             result={automationMappingResult}
             options={automationMappingOptions}
             onOptionsChange={onAutomationMappingOptionsChange}
+            refinementStatus={automationRefinementStatus}
+            refinementMessage={automationRefinementMessage}
+            refinementResult={automationRefinementResult}
+            llmProviderStatus={llmProviderStatus}
             onMap={onMapAutomationCandidates}
+            onRequestRefinement={onRequestAutomationRefinement}
           />
         </>
       ) : null}
@@ -2413,7 +2746,12 @@ function AutomationCandidateCard({
   result,
   options,
   onOptionsChange,
-  onMap
+  refinementStatus,
+  refinementMessage,
+  refinementResult,
+  llmProviderStatus,
+  onMap,
+  onRequestRefinement
 }: {
   reviewSession: TestCaseReviewSession;
   status: AutomationMappingStatus;
@@ -2421,7 +2759,12 @@ function AutomationCandidateCard({
   result: AutomationCandidateMappingResult | null;
   options: Required<AutomationMappingOptions>;
   onOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  refinementStatus: AiAssistStatus;
+  refinementMessage: string;
+  refinementResult: AiRefinementResult | null;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
   onMap: () => void;
+  onRequestRefinement: () => void;
 }) {
   function toggleOption(key: keyof Required<AutomationMappingOptions>): void {
     onOptionsChange({ ...options, [key]: !options[key] });
@@ -2448,6 +2791,19 @@ function AutomationCandidateCard({
       />
       <InfoCard title="Automation mapping status" body={message} tone={status === "error" ? "warning" : "neutral"} />
       {result ? <AutomationCandidateResult result={result} /> : null}
+      {result ? (
+        <AiRefinementCard
+          title="AI-assisted automation refinements"
+          status={refinementStatus}
+          message={refinementMessage}
+          result={refinementResult}
+          llmProviderStatus={llmProviderStatus}
+          canRequest={Boolean(result)}
+          loadingLabel="Requesting automation refinements..."
+          actionLabel="Request AI refinement for automation mapping"
+          onRequest={onRequestRefinement}
+        />
+      ) : null}
     </article>
   );
 }
@@ -2616,6 +2972,10 @@ function WritebackHelperCard({
   attachmentFileName,
   attachmentContentType,
   attachmentSizeBytes,
+  refinementStatus,
+  refinementMessage,
+  refinementResult,
+  llmProviderStatus,
   canPreview,
   onHelperTypeChange,
   onUserNotesChange,
@@ -2623,7 +2983,8 @@ function WritebackHelperCard({
   onAttachmentFileNameChange,
   onAttachmentContentTypeChange,
   onAttachmentSizeBytesChange,
-  onPreview
+  onPreview,
+  onRequestRefinement
 }: {
   status: WritebackPreviewRequestStatus;
   message: string;
@@ -2634,6 +2995,10 @@ function WritebackHelperCard({
   attachmentFileName: string;
   attachmentContentType: string;
   attachmentSizeBytes: string;
+  refinementStatus: AiAssistStatus;
+  refinementMessage: string;
+  refinementResult: AiRefinementResult | null;
+  llmProviderStatus: LlmProviderConfigurationSummary | null;
   canPreview: boolean;
   onHelperTypeChange: (helperType: WritebackHelperType) => void;
   onUserNotesChange: (notes: string) => void;
@@ -2642,6 +3007,7 @@ function WritebackHelperCard({
   onAttachmentContentTypeChange: (contentType: string) => void;
   onAttachmentSizeBytesChange: (sizeBytes: string) => void;
   onPreview: () => void;
+  onRequestRefinement: () => void;
 }) {
   return (
     <article className="info-card writeback-card">
@@ -2694,6 +3060,17 @@ function WritebackHelperCard({
           <AnalysisList title="Required confirmations" items={result.requiredConfirmations} />
           <pre className="preview-text">{JSON.stringify(result.preview, null, 2)}</pre>
           <p className="trust-note">{result.disclaimer}</p>
+          <AiRefinementCard
+            title="AI-assisted write-back refinements"
+            status={refinementStatus}
+            message={refinementMessage}
+            result={refinementResult}
+            llmProviderStatus={llmProviderStatus}
+            canRequest={Boolean(result)}
+            loadingLabel="Requesting wording refinements..."
+            actionLabel="Request AI wording refinement"
+            onRequest={onRequestRefinement}
+          />
         </div>
       ) : null}
     </article>
@@ -3199,7 +3576,7 @@ function SettingsPanel({
           ]}
         />
         <InfoCard title="Provider status" body={llmProviderMessage} tone={llmProviderStatus?.availability === "misconfigured" ? "warning" : "neutral"} />
-        <TrustNote text="AI provider configuration is backend-only. No API key is stored in the extension. AI-assisted output is a suggestion layer and requires QA review." />
+        <TrustNote text="AI provider configuration is backend-only. No API key is stored in the extension. AI-assisted refinement is optional; deterministic output remains the default and suggestions require QA review." />
       </SettingsCard>
       <SettingsCard title="Automation" body="Automation setup is a later capability after approved test cases.">
         <InfoGrid

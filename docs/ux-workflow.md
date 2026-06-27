@@ -45,6 +45,8 @@ Step 0025 adds export/package review output. The Story tab can package selected 
 
 Step 0026 adds Story/bug write-back helper previews. The Story tab can prepare bug draft, comment draft, state transition, and attachment metadata previews, but no live Azure DevOps write buttons are active. Helper output must say preview-only, show warnings and required confirmations, and keep final submission out of scope for this step.
 
+Step 0027 expands optional backend-mediated AI refinement across deterministic outputs. Story AI assist remains separate, and draft cases, automation mapping, and write-back helper previews can each request AI suggestions only after their deterministic baseline exists. Suggestions render in separate cards, never auto-apply, never enable Azure/Test Plans actions, and must stay disabled or safely messaged when the provider is disabled or misconfigured.
+
 ## Setup Flow
 
 Step 0011 makes setup-first behavior explicit. If no team board is selected, Today should say `Connect Azure and select a team board to start.` and route the user to Settings. Settings should feel like a product connection flow, not a developer console: enter Azure DevOps Services or TFS URL, click Connect, show green connected state when the URL is accepted, then select the team board. PATs and `.env` remain local developer fallback details outside the QA user flow.

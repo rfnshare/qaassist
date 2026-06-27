@@ -4,6 +4,8 @@ import type {
   AzureDevOpsTeamOption,
   AutomationCandidateMappingRequest,
   AutomationCandidateMappingResult,
+  AiRefinementRequest,
+  AiRefinementResult,
   BoardBriefing,
   BoardKnowledgeSource,
   BoardKnowledgeSummary,
@@ -152,6 +154,13 @@ export async function requestStoryAnalysisAssist(
   input: StoryAnalysisAssistRequest
 ): Promise<StoryAnalysisAssistResult> {
   return postJson(apiBaseUrl, "/ai/story-analysis/assist", input);
+}
+
+export async function requestAiRefinement(
+  apiBaseUrl: string,
+  input: AiRefinementRequest
+): Promise<AiRefinementResult> {
+  return postJson(apiBaseUrl, "/ai/refine", input);
 }
 
 export async function validateBoardKnowledgeSource(

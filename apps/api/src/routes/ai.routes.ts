@@ -1,6 +1,13 @@
 import type { FastifyInstance } from "fastify";
-import type { StoryAnalysisAssistRequest, StoryRequirementAnalysis, WorkItemDetail } from "@qa-assist/shared";
+import type {
+  AiRefinementRequest,
+  AiRefinementTarget,
+  StoryAnalysisAssistRequest,
+  StoryRequirementAnalysis,
+  WorkItemDetail
+} from "@qa-assist/shared";
 import type { ApiEnv } from "../config/env.js";
+import { generateAiRefinement } from "../ai/aiRefinement.service.js";
 import { getLlmRuntimeConfig, summarizeLlmProvider } from "../ai/llmConfig.js";
 import { createLlmProvider, generateStoryAnalysisAssist } from "../ai/llmProvider.js";
 
@@ -8,6 +15,21 @@ type StoryAssistBody = {
   workItem?: unknown;
   deterministicAnalysis?: unknown;
 };
+
+type AiRefinementBody = {
+  target?: unknown;
+  deterministicInput?: unknown;
+  contextSummary?: unknown;
+  reviewedSessionSummary?: unknown;
+  userPromptNote?: unknown;
+};
+
+const AI_REFINEMENT_TARGETS: AiRefinementTarget[] = [
+  "story-analysis",
+  "draft-test-cases",
+  "automation-candidates",
+  "writeback-helper"
+];
 
 export async function registerAiRoutes(app: FastifyInstance, env: ApiEnv): Promise<void> {
   app.get("/ai/provider-status", async () => summarizeLlmProvider(getLlmRuntimeConfig(env)));
@@ -34,6 +56,31 @@ export async function registerAiRoutes(app: FastifyInstance, env: ApiEnv): Promi
       });
     } catch {
       throw unavailable("LLM-assisted Story analysis request failed.");
+    }
+  });
+
+  app.post<{ Body: AiRefinementBody }>("/ai/refine", async (request) => {
+    const input = validateAiRefinementBody(request.body);
+    const config = getLlmRuntimeConfig(env);
+    const summary = summarizeLlmProvider(config);
+
+    if (summary.availability !== "available") {
+      throw unavailable(summary.reason ?? "LLM provider is not available.");
+    }
+
+    const provider = createLlmProvider(config);
+    if (!provider) {
+      throw unavailable("LLM provider is not available.");
+    }
+
+    try {
+      return await generateAiRefinement({
+        request: input,
+        config,
+        provider
+      });
+    } catch {
+      throw unavailable("AI-assisted refinement request failed.");
     }
   });
 }
@@ -74,6 +121,74 @@ function validateStoryAssistBody(body: StoryAssistBody | undefined): StoryAnalys
     workItem: workItem as WorkItemDetail,
     deterministicAnalysis: deterministicAnalysis as StoryRequirementAnalysis
   };
+}
+
+function validateAiRefinementBody(body: AiRefinementBody | undefined): AiRefinementRequest {
+  if (!body || typeof body !== "object") {
+    throw badRequest("Request body is required.");
+  }
+
+  if (!isAiRefinementTarget(body.target)) {
+    throw badRequest("target must be one of story-analysis, draft-test-cases, automation-candidates, writeback-helper.");
+  }
+
+  if (body.deterministicInput === undefined || body.deterministicInput === null) {
+    throw badRequest("deterministicInput is required.");
+  }
+
+  if (containsSensitiveKey(body.deterministicInput) || containsSensitiveKey(body.contextSummary) || containsSensitiveKey(body.reviewedSessionSummary) || containsSensitiveKey(body.userPromptNote)) {
+    throw badRequest("Request body must not include secrets or credential-like fields.");
+  }
+
+  return {
+    target: body.target,
+    deterministicInput: body.deterministicInput,
+    contextSummary: normalizeOptionalString(body.contextSummary),
+    reviewedSessionSummary: normalizeOptionalString(body.reviewedSessionSummary),
+    userPromptNote: normalizeOptionalString(body.userPromptNote)
+  };
+}
+
+function isAiRefinementTarget(value: unknown): value is AiRefinementTarget {
+  return typeof value === "string" && AI_REFINEMENT_TARGETS.includes(value as AiRefinementTarget);
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    throw badRequest("Optional context fields must be strings.");
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function containsSensitiveKey(value: unknown): boolean {
+  if (!isObject(value)) {
+    return false;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    if (/(pat|token|authorization|password|secret|apikey|api_key)/i.test(key)) {
+      return true;
+    }
+
+    if (Array.isArray(child)) {
+      if (child.some(containsSensitiveKey)) {
+        return true;
+      }
+      continue;
+    }
+
+    if (containsSensitiveKey(child)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

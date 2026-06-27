@@ -1699,7 +1699,7 @@ function TestPlansCreationResultView({ result }: { result: TestPlansCreationResu
       />
       <AnalysisList
         title="Failed items"
-        items={result.failedItems.map((item) => `${item.title}: ${item.reason}`)}
+        items={result.failedItems.map(formatCreationFailure)}
       />
       <AnalysisList
         title="Skipped items"
@@ -1708,6 +1708,16 @@ function TestPlansCreationResultView({ result }: { result: TestPlansCreationResu
       <p className="trust-note">{result.disclaimer}</p>
     </div>
   );
+}
+
+function formatCreationFailure(item: TestPlansCreationResult["failedItems"][number]): string {
+  if (item.partiallyCreated) {
+    const workItem = item.azureWorkItemId ? ` Azure test case #${item.azureWorkItemId} was created.` : " An Azure test case may have been created.";
+    const url = item.azureWorkItemUrl ? ` ${item.azureWorkItemUrl}` : "";
+    return `${item.title}: ${item.reason}${workItem}${url}`;
+  }
+
+  return `${item.title}: ${item.reason}`;
 }
 
 function TestCaseReviewEditor({

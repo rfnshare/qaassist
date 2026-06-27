@@ -24,14 +24,30 @@ export async function createExplicitTestPlansCases(
   const failedItems: TestPlansCreationFailure[] = [];
 
   for (const candidate of selectedCandidates) {
+    let created: Awaited<ReturnType<AzureTestPlansClient["createTestCase"]>> | undefined;
+
     try {
-      const created = await client.createTestCase({
+      created = await client.createTestCase({
         organization: input.readinessResult.target.organization,
         project: input.readinessResult.target.project,
         title: candidate.title,
         previewFields: candidate.previewFields
       });
+    } catch (error) {
+      if (error instanceof AzureDevOpsIntegrationError && error.statusCode === 503) {
+        throw error;
+      }
 
+      failedItems.push({
+        reviewedCaseId: candidate.reviewedCaseId,
+        originalDraftId: candidate.originalDraftId,
+        title: candidate.title,
+        reason: sanitizeCreationError(error)
+      });
+      continue;
+    }
+
+    try {
       await client.addTestCaseToSuite({
         organization: input.readinessResult.target.organization,
         project: input.readinessResult.target.project,
@@ -51,15 +67,14 @@ export async function createExplicitTestPlansCases(
         createdAt: new Date().toISOString()
       });
     } catch (error) {
-      if (error instanceof AzureDevOpsIntegrationError && error.statusCode === 503) {
-        throw error;
-      }
-
       failedItems.push({
         reviewedCaseId: candidate.reviewedCaseId,
         originalDraftId: candidate.originalDraftId,
         title: candidate.title,
-        reason: sanitizeCreationError(error)
+        reason: "Test case was created in Azure, but adding it to the selected suite failed.",
+        azureWorkItemId: created.id,
+        azureWorkItemUrl: created.url,
+        partiallyCreated: true
       });
     }
   }

@@ -35,6 +35,9 @@ export type TestPlansCreationFailure = {
   originalDraftId: string;
   title: string;
   reason: string;
+  azureWorkItemId?: number;
+  azureWorkItemUrl?: string;
+  partiallyCreated?: boolean;
 };
 
 export type TestPlansSkippedItem = {

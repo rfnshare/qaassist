@@ -6,6 +6,7 @@ import { registerErrorHandler } from "./plugins/errorHandler.js";
 import { registerAzureDevOpsRoutes } from "./routes/azureDevOps.routes.js";
 import { registerAnalysisRoutes } from "./routes/analysis.routes.js";
 import { registerAiRoutes } from "./routes/ai.routes.js";
+import { registerAutomationRoutes } from "./routes/automation.routes.js";
 import { registerBriefingRoutes } from "./routes/briefings.routes.js";
 import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerKnowledgeRoutes } from "./routes/knowledge.routes.js";
@@ -30,6 +31,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerHealthRoutes(app);
   await registerAiRoutes(app, env);
   await registerAnalysisRoutes(app);
+  await registerAutomationRoutes(app);
   await registerAzureDevOpsRoutes(app, env);
   await registerBriefingRoutes(app);
   await registerKnowledgeRoutes(app);

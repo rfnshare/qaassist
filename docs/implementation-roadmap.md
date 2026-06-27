@@ -25,10 +25,7 @@
 - 0021 Azure Test Plans write-back readiness preview.
 - 0022 Azure Test Plans explicit creation approval flow.
 - 0023 Optional backend LLM provider adapter.
-
-## 0024 Automation Candidate Mapping
-
-Map approved test cases to manual, API, UI, or future Playwright automation candidates.
+- 0024 Automation candidate mapping.
 
 ## 0025 Export/Package Review Output
 
@@ -41,6 +38,10 @@ Add reviewed helper flows for story comments, bug creation, and traceability lin
 ## 0027 Broader AI-Assisted Refinement Rollout
 
 Expand backend-mediated LLM assistance to board briefing, draft refinement, and review support after prompt/versioning, audit, and confirmation guardrails are designed.
+
+## 0028 Optional Automation Generation Scaffold
+
+Design a reviewed scaffold for future automation generation without default repo writes, framework generation, or CI changes.
 
 ## Later Story Workspace Requirement Discussion
 

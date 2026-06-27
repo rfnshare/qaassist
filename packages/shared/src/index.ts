@@ -2,6 +2,7 @@ export * from "./api/apiError.js";
 export * from "./api/apiResponse.js";
 export * from "./ai/llmProvider.js";
 export * from "./analysis/storyRequirementAnalysis.js";
+export * from "./automation/automationCandidate.js";
 export * from "./briefings/boardBriefing.js";
 export * from "./boards/boardSummary.js";
 export * from "./boards/workQueue.js";

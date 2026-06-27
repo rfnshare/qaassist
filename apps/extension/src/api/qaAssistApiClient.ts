@@ -2,6 +2,8 @@ import type {
   AzureDevOpsConnectionInfo,
   AzureDevOpsProjectOption,
   AzureDevOpsTeamOption,
+  AutomationCandidateMappingRequest,
+  AutomationCandidateMappingResult,
   BoardBriefing,
   BoardKnowledgeSource,
   BoardKnowledgeSummary,
@@ -114,6 +116,13 @@ export async function createTestPlansCases(
   input: TestPlansCreationRequest
 ): Promise<TestPlansCreationResult> {
   return postJson(apiBaseUrl, "/test-plans/create", input);
+}
+
+export async function mapAutomationCandidates(
+  apiBaseUrl: string,
+  input: AutomationCandidateMappingRequest
+): Promise<AutomationCandidateMappingResult> {
+  return postJson(apiBaseUrl, "/automation/candidates/map", input);
 }
 
 export async function fetchLlmProviderStatus(apiBaseUrl: string): Promise<LlmProviderConfigurationSummary> {

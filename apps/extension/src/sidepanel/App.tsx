@@ -6,6 +6,8 @@ import type {
   AzureDevOpsConnectionStatus,
   AzureDevOpsProjectOption,
   AzureDevOpsTeamOption,
+  AutomationCandidateMappingResult,
+  AutomationMappingOptions,
   BoardBriefing,
   BoardKnowledgeSource,
   BoardKnowledgeSourceType,
@@ -41,6 +43,7 @@ import {
   generateBoardBriefing,
   generateTestCaseDrafts,
   listAzureTeams,
+  mapAutomationCandidates,
   normalizeReviewedTestCases,
   previewTestPlansReadiness,
   requestStoryAnalysisAssist,
@@ -64,6 +67,7 @@ type DraftGenerationStatus = "idle" | "loading" | "success" | "error";
 type ReviewStatus = "idle" | "loading" | "success" | "error";
 type TestPlansReadinessStatus = "idle" | "loading" | "success" | "error";
 type TestPlansCreationRequestStatus = "idle" | "loading" | "success" | "error";
+type AutomationMappingStatus = "idle" | "loading" | "success" | "error";
 type SetupStatus = "idle" | "connecting" | "loading-projects" | "loading-teams" | "success" | "error";
 
 type ExtensionSettings = {
@@ -162,6 +166,14 @@ export function App() {
   const [testPlansCreationStatus, setTestPlansCreationStatus] = useState<TestPlansCreationRequestStatus>("idle");
   const [testPlansCreationMessage, setTestPlansCreationMessage] = useState("Preview readiness, select candidates, then confirm before creating in Azure Test Plans.");
   const [testPlansCreationResult, setTestPlansCreationResult] = useState<TestPlansCreationResult | null>(null);
+  const [automationMappingStatus, setAutomationMappingStatus] = useState<AutomationMappingStatus>("idle");
+  const [automationMappingMessage, setAutomationMappingMessage] = useState("Validate review decisions before mapping automation candidates.");
+  const [automationMappingResult, setAutomationMappingResult] = useState<AutomationCandidateMappingResult | null>(null);
+  const [automationMappingOptions, setAutomationMappingOptions] = useState<Required<AutomationMappingOptions>>({
+    preferUi: true,
+    preferApi: false,
+    includeBlocked: false
+  });
   const [draftInputs, setDraftInputs] = useState<Required<TestCaseDraftSelectedInputs>>({
     includePositivePath: true,
     includeNegativePath: true,
@@ -244,6 +256,7 @@ export function App() {
     setDraftMessage("Analyze requirements before drafting test cases.");
     resetTestCaseReviewState("Generate draft cases before review.");
     resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+    resetAutomationMapping("Validate review decisions before mapping automation candidates.");
     setSelectedKnowledgeSourceIds([]);
     setIncludeLatestExtraction(false);
     setUserConfirmedNote("");
@@ -362,6 +375,7 @@ export function App() {
     setDraftMessage("Analyze requirements before drafting test cases.");
     resetTestCaseReviewState("Generate draft cases before review.");
     resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+    resetAutomationMapping("Validate review decisions before mapping automation candidates.");
 
     try {
       const payload = await fetchWorkItemDetail(settings.apiBaseUrl, {
@@ -418,6 +432,7 @@ export function App() {
       setDraftMessage("Analysis is ready. Draft cases are still not generated.");
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+      resetAutomationMapping("Validate review decisions before mapping automation candidates.");
     } catch (error) {
       setStoryAnalysis(null);
       setStoryAnalysisStatus("error");
@@ -428,6 +443,7 @@ export function App() {
       setDraftMessage("Analyze requirements before drafting test cases.");
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+      resetAutomationMapping("Validate review decisions before mapping automation candidates.");
     }
   }
 
@@ -436,6 +452,7 @@ export function App() {
     setReviewSession(null);
     setReviewStatus("idle");
     setReviewMessage(message);
+    resetAutomationMapping("Validate review decisions before mapping automation candidates.");
   }
 
   function resetAiAssist(message: string): void {
@@ -490,9 +507,16 @@ export function App() {
     setTestPlansCreationMessage(message);
   }
 
+  function resetAutomationMapping(message: string): void {
+    setAutomationMappingResult(null);
+    setAutomationMappingStatus("idle");
+    setAutomationMappingMessage(message);
+  }
+
   function updateReviewCases(nextReviewCases: ReviewedTestCase[]): void {
     setReviewCases(nextReviewCases);
     resetTestPlansReadiness("Review decisions changed. Validate review decisions before previewing Azure Test Plans readiness.");
+    resetAutomationMapping("Review decisions changed. Validate review decisions before mapping automation candidates.");
   }
 
   async function generateDraftCases(): Promise<void> {
@@ -518,12 +542,14 @@ export function App() {
       setReviewStatus("idle");
       setReviewMessage("Review generated drafts locally. Nothing is exported or written back.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+      resetAutomationMapping("Validate review decisions before mapping automation candidates.");
       setDraftStatus("success");
       setDraftMessage("Draft cases generated. QA review is required before use.");
     } catch (error) {
       setDraftResult(null);
       resetTestCaseReviewState("Generate draft cases before review.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+      resetAutomationMapping("Validate review decisions before mapping automation candidates.");
       setDraftStatus("error");
       setDraftMessage(error instanceof Error ? error.message : "Draft generation failed.");
     }
@@ -539,6 +565,7 @@ export function App() {
     setReviewStatus("loading");
     setReviewMessage("Validating local review decisions...");
     resetTestPlansReadiness("Review validation is running. Preview readiness after validation succeeds.");
+    resetAutomationMapping("Review validation is running. Map automation candidates after validation succeeds.");
 
     try {
       const session = await normalizeReviewedTestCases(settings.apiBaseUrl, {
@@ -555,11 +582,39 @@ export function App() {
       setReviewStatus("success");
       setReviewMessage("Review decisions validated locally. Nothing was created in Azure Test Plans.");
       resetTestPlansReadiness("Review decisions validated. Preview Azure Test Plans readiness when ready.");
+      resetAutomationMapping("Review decisions validated. Map automation candidates when ready.");
     } catch (error) {
       setReviewSession(null);
       setReviewStatus("error");
       setReviewMessage(error instanceof Error ? error.message : "Review validation failed.");
       resetTestPlansReadiness("Validate review decisions before previewing Azure Test Plans readiness.");
+      resetAutomationMapping("Validate review decisions before mapping automation candidates.");
+    }
+  }
+
+  async function mapReviewedAutomationCandidates(): Promise<void> {
+    if (!reviewSession) {
+      setAutomationMappingStatus("error");
+      setAutomationMappingMessage("Validate review decisions before mapping automation candidates.");
+      return;
+    }
+
+    setAutomationMappingStatus("loading");
+    setAutomationMappingMessage("Mapping automation candidates. No code or repo changes will be created.");
+
+    try {
+      const result = await mapAutomationCandidates(settings.apiBaseUrl, {
+        reviewSession,
+        mappingOptions: automationMappingOptions
+      });
+
+      setAutomationMappingResult(result);
+      setAutomationMappingStatus("success");
+      setAutomationMappingMessage("Automation candidate mapping is ready. Planning only - no automation code created.");
+    } catch (error) {
+      setAutomationMappingResult(null);
+      setAutomationMappingStatus("error");
+      setAutomationMappingMessage(error instanceof Error ? error.message : "Automation candidate mapping failed.");
     }
   }
 
@@ -708,6 +763,11 @@ export function App() {
           testPlansCreationStatus,
           testPlansCreationMessage,
           testPlansCreationResult,
+          automationMappingStatus,
+          automationMappingMessage,
+          automationMappingResult,
+          automationMappingOptions,
+          setAutomationMappingOptions,
           draftInputs,
           setDraftInputs,
           selectedKnowledgeSourceIds,
@@ -727,6 +787,7 @@ export function App() {
           onSelectedTestPlansCandidateIdsChange: updateSelectedTestPlansCandidateIds,
           onTestPlansCreationConfirmedChange: setTestPlansCreationConfirmed,
           onCreateSelectedTestPlansCases: createSelectedAzureTestPlansCases,
+          onMapAutomationCandidates: mapReviewedAutomationCandidates,
           onOpenSettings: () => setActivePanel("settings")
         })}
       </div>
@@ -785,6 +846,11 @@ function renderPanel(props: {
   testPlansCreationStatus: TestPlansCreationRequestStatus;
   testPlansCreationMessage: string;
   testPlansCreationResult: TestPlansCreationResult | null;
+  automationMappingStatus: AutomationMappingStatus;
+  automationMappingMessage: string;
+  automationMappingResult: AutomationCandidateMappingResult | null;
+  automationMappingOptions: Required<AutomationMappingOptions>;
+  setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -804,6 +870,7 @@ function renderPanel(props: {
   onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
+  onMapAutomationCandidates: () => void;
   onOpenSettings: () => void;
 }) {
   switch (props.activePanel) {
@@ -854,6 +921,11 @@ function renderPanel(props: {
           testPlansCreationStatus={props.testPlansCreationStatus}
           testPlansCreationMessage={props.testPlansCreationMessage}
           testPlansCreationResult={props.testPlansCreationResult}
+          automationMappingStatus={props.automationMappingStatus}
+          automationMappingMessage={props.automationMappingMessage}
+          automationMappingResult={props.automationMappingResult}
+          automationMappingOptions={props.automationMappingOptions}
+          setAutomationMappingOptions={props.setAutomationMappingOptions}
           draftInputs={props.draftInputs}
           setDraftInputs={props.setDraftInputs}
           selectedKnowledgeSourceIds={props.selectedKnowledgeSourceIds}
@@ -872,6 +944,7 @@ function renderPanel(props: {
           onSelectedTestPlansCandidateIdsChange={props.onSelectedTestPlansCandidateIdsChange}
           onTestPlansCreationConfirmedChange={props.onTestPlansCreationConfirmedChange}
           onCreateSelectedTestPlansCases={props.onCreateSelectedTestPlansCases}
+          onMapAutomationCandidates={props.onMapAutomationCandidates}
         />
       );
     case "run":
@@ -1002,6 +1075,11 @@ function StoryPanel({
   testPlansCreationStatus,
   testPlansCreationMessage,
   testPlansCreationResult,
+  automationMappingStatus,
+  automationMappingMessage,
+  automationMappingResult,
+  automationMappingOptions,
+  setAutomationMappingOptions,
   draftInputs,
   setDraftInputs,
   selectedKnowledgeSourceIds,
@@ -1019,7 +1097,8 @@ function StoryPanel({
   onPreviewTestPlansReadiness,
   onSelectedTestPlansCandidateIdsChange,
   onTestPlansCreationConfirmedChange,
-  onCreateSelectedTestPlansCases
+  onCreateSelectedTestPlansCases,
+  onMapAutomationCandidates
 }: {
   pageContext: AzureDevOpsPageContext | null;
   status: DetectionStatus;
@@ -1050,6 +1129,11 @@ function StoryPanel({
   testPlansCreationStatus: TestPlansCreationRequestStatus;
   testPlansCreationMessage: string;
   testPlansCreationResult: TestPlansCreationResult | null;
+  automationMappingStatus: AutomationMappingStatus;
+  automationMappingMessage: string;
+  automationMappingResult: AutomationCandidateMappingResult | null;
+  automationMappingOptions: Required<AutomationMappingOptions>;
+  setAutomationMappingOptions: (options: Required<AutomationMappingOptions>) => void;
   draftInputs: Required<TestCaseDraftSelectedInputs>;
   setDraftInputs: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   selectedKnowledgeSourceIds: string[];
@@ -1068,6 +1152,7 @@ function StoryPanel({
   onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
+  onMapAutomationCandidates: () => void;
 }) {
   const detected = Boolean(pageContext);
   const checking = status === "checking";
@@ -1147,6 +1232,11 @@ function StoryPanel({
             testPlansCreationStatus={testPlansCreationStatus}
             testPlansCreationMessage={testPlansCreationMessage}
             testPlansCreationResult={testPlansCreationResult}
+            automationMappingStatus={automationMappingStatus}
+            automationMappingMessage={automationMappingMessage}
+            automationMappingResult={automationMappingResult}
+            automationMappingOptions={automationMappingOptions}
+            onAutomationMappingOptionsChange={setAutomationMappingOptions}
             inputs={draftInputs}
             onInputsChange={setDraftInputs}
             onGenerate={onGenerateDraftCases}
@@ -1155,6 +1245,7 @@ function StoryPanel({
             onSelectedTestPlansCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
             onTestPlansCreationConfirmedChange={onTestPlansCreationConfirmedChange}
             onCreateSelectedTestPlansCases={onCreateSelectedTestPlansCases}
+            onMapAutomationCandidates={onMapAutomationCandidates}
           />
         </>
       ) : <StoryPlaceholderCards />}
@@ -1458,6 +1549,11 @@ function TestCaseDraftCard({
   testPlansCreationStatus,
   testPlansCreationMessage,
   testPlansCreationResult,
+  automationMappingStatus,
+  automationMappingMessage,
+  automationMappingResult,
+  automationMappingOptions,
+  onAutomationMappingOptionsChange,
   inputs,
   onInputsChange,
   onGenerate,
@@ -1465,7 +1561,8 @@ function TestCaseDraftCard({
   onPreviewTestPlansReadiness,
   onSelectedTestPlansCandidateIdsChange,
   onTestPlansCreationConfirmedChange,
-  onCreateSelectedTestPlansCases
+  onCreateSelectedTestPlansCases,
+  onMapAutomationCandidates
 }: {
   analysis: StoryRequirementAnalysis | null;
   status: DraftGenerationStatus;
@@ -1484,6 +1581,11 @@ function TestCaseDraftCard({
   testPlansCreationStatus: TestPlansCreationRequestStatus;
   testPlansCreationMessage: string;
   testPlansCreationResult: TestPlansCreationResult | null;
+  automationMappingStatus: AutomationMappingStatus;
+  automationMappingMessage: string;
+  automationMappingResult: AutomationCandidateMappingResult | null;
+  automationMappingOptions: Required<AutomationMappingOptions>;
+  onAutomationMappingOptionsChange: (options: Required<AutomationMappingOptions>) => void;
   inputs: Required<TestCaseDraftSelectedInputs>;
   onInputsChange: (inputs: Required<TestCaseDraftSelectedInputs>) => void;
   onGenerate: () => void;
@@ -1492,6 +1594,7 @@ function TestCaseDraftCard({
   onSelectedTestPlansCandidateIdsChange: (candidateIds: string[]) => void;
   onTestPlansCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelectedTestPlansCases: () => void;
+  onMapAutomationCandidates: () => void;
 }) {
   function toggleInput(key: keyof Required<TestCaseDraftSelectedInputs>): void {
     onInputsChange({ ...inputs, [key]: !inputs[key] });
@@ -1537,6 +1640,12 @@ function TestCaseDraftCard({
           onSelectedCandidateIdsChange={onSelectedTestPlansCandidateIdsChange}
           onCreationConfirmedChange={onTestPlansCreationConfirmedChange}
           onCreateSelected={onCreateSelectedTestPlansCases}
+          automationMappingStatus={automationMappingStatus}
+          automationMappingMessage={automationMappingMessage}
+          automationMappingResult={automationMappingResult}
+          automationMappingOptions={automationMappingOptions}
+          onAutomationMappingOptionsChange={onAutomationMappingOptionsChange}
+          onMapAutomationCandidates={onMapAutomationCandidates}
         />
       ) : null}
     </article>
@@ -1573,7 +1682,13 @@ function TestCaseDraftResult({
   creationResult,
   onSelectedCandidateIdsChange,
   onCreationConfirmedChange,
-  onCreateSelected
+  onCreateSelected,
+  automationMappingStatus,
+  automationMappingMessage,
+  automationMappingResult,
+  automationMappingOptions,
+  onAutomationMappingOptionsChange,
+  onMapAutomationCandidates
 }: {
   result: TestCaseDraftGenerationResult;
   reviewCases: ReviewedTestCase[];
@@ -1594,6 +1709,12 @@ function TestCaseDraftResult({
   onSelectedCandidateIdsChange: (candidateIds: string[]) => void;
   onCreationConfirmedChange: (confirmed: boolean) => void;
   onCreateSelected: () => void;
+  automationMappingStatus: AutomationMappingStatus;
+  automationMappingMessage: string;
+  automationMappingResult: AutomationCandidateMappingResult | null;
+  automationMappingOptions: Required<AutomationMappingOptions>;
+  onAutomationMappingOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  onMapAutomationCandidates: () => void;
 }) {
   const summary = reviewSession?.summary ?? buildLocalReviewSummary(reviewCases, result.draftCases.length);
 
@@ -1642,21 +1763,32 @@ function TestCaseDraftResult({
         <AnalysisList title="Review warnings" items={summary.warnings} />
       </article>
       {reviewSession ? (
-        <TestPlansReadinessCard
-          reviewSession={reviewSession}
-          status={readinessStatus}
-          message={readinessMessage}
-          readiness={readiness}
-          onPreview={onPreviewReadiness}
-          selectedCandidateIds={selectedCandidateIds}
-          creationConfirmed={creationConfirmed}
-          creationStatus={creationStatus}
-          creationMessage={creationMessage}
-          creationResult={creationResult}
-          onSelectedCandidateIdsChange={onSelectedCandidateIdsChange}
-          onCreationConfirmedChange={onCreationConfirmedChange}
-          onCreateSelected={onCreateSelected}
-        />
+        <>
+          <TestPlansReadinessCard
+            reviewSession={reviewSession}
+            status={readinessStatus}
+            message={readinessMessage}
+            readiness={readiness}
+            onPreview={onPreviewReadiness}
+            selectedCandidateIds={selectedCandidateIds}
+            creationConfirmed={creationConfirmed}
+            creationStatus={creationStatus}
+            creationMessage={creationMessage}
+            creationResult={creationResult}
+            onSelectedCandidateIdsChange={onSelectedCandidateIdsChange}
+            onCreationConfirmedChange={onCreationConfirmedChange}
+            onCreateSelected={onCreateSelected}
+          />
+          <AutomationCandidateCard
+            reviewSession={reviewSession}
+            status={automationMappingStatus}
+            message={automationMappingMessage}
+            result={automationMappingResult}
+            options={automationMappingOptions}
+            onOptionsChange={onAutomationMappingOptionsChange}
+            onMap={onMapAutomationCandidates}
+          />
+        </>
       ) : null}
       <div className="draft-list">
         {result.draftCases.map((draftCase) => (
@@ -1880,6 +2012,100 @@ function formatCreationFailure(item: TestPlansCreationResult["failedItems"][numb
   }
 
   return `${item.title}: ${item.reason}`;
+}
+
+function AutomationCandidateCard({
+  reviewSession,
+  status,
+  message,
+  result,
+  options,
+  onOptionsChange,
+  onMap
+}: {
+  reviewSession: TestCaseReviewSession;
+  status: AutomationMappingStatus;
+  message: string;
+  result: AutomationCandidateMappingResult | null;
+  options: Required<AutomationMappingOptions>;
+  onOptionsChange: (options: Required<AutomationMappingOptions>) => void;
+  onMap: () => void;
+}) {
+  function toggleOption(key: keyof Required<AutomationMappingOptions>): void {
+    onOptionsChange({ ...options, [key]: !options[key] });
+  }
+
+  return (
+    <article className="info-card automation-card">
+      <div className="card-row">
+        <h4>Automation candidates</h4>
+        <span className={result?.summary.readyCount ? "status-pill success" : result ? "status-pill warning" : "status-pill"}>
+          {result ? "Mapped" : "Planning only"}
+        </span>
+      </div>
+      <p>Planning only - no automation code created.</p>
+      <div className="choice-list compact">
+        <DraftOption label="Prefer UI" checked={options.preferUi} onChange={() => toggleOption("preferUi")} />
+        <DraftOption label="Prefer API" checked={options.preferApi} onChange={() => toggleOption("preferApi")} />
+        <DraftOption label="Include blocked cases" checked={options.includeBlocked} onChange={() => toggleOption("includeBlocked")} />
+      </div>
+      <SecondaryAction
+        label={status === "loading" ? "Mapping automation candidates..." : "Map automation candidates"}
+        disabled={status === "loading" || reviewSession.reviewedCases.length === 0}
+        onClick={onMap}
+      />
+      <InfoCard title="Automation mapping status" body={message} tone={status === "error" ? "warning" : "neutral"} />
+      {result ? <AutomationCandidateResult result={result} /> : null}
+    </article>
+  );
+}
+
+function AutomationCandidateResult({ result }: { result: AutomationCandidateMappingResult }) {
+  return (
+    <div className="automation-result">
+      <InfoGrid
+        items={[
+          ["Generated", formatDateTime(result.generatedAt)],
+          ["Reviewed", String(result.summary.totalReviewed)],
+          ["Candidates", String(result.summary.candidateCount)],
+          ["Ready", String(result.summary.readyCount)],
+          ["Needs work", String(result.summary.needsWorkCount)],
+          ["Manual-only", String(result.summary.manualOnlyCount)]
+        ]}
+      />
+      <div className="analysis-list readiness-list">
+        <span>Candidates</span>
+        {result.candidates.length > 0 ? (
+          <ul>
+            {result.candidates.map((candidate) => (
+              <li key={candidate.reviewedCaseId}>
+                <strong>{candidate.title}</strong> - {candidate.candidateType}, {candidate.readiness}. {candidate.recommendedStartingPoint}
+                <BriefingList title="Reasons" items={candidate.reasons.map((reason) => reason.evidence ? `${reason.text} (${reason.evidence})` : reason.text)} />
+                <BriefingList title="Blockers" items={candidate.blockers.map((blocker) => `${blocker.severity}: ${blocker.text}`)} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No automation candidates returned.</p>
+        )}
+      </div>
+      <div className="analysis-list readiness-list">
+        <span>Blocked/manual-only cases</span>
+        {result.blockedCases.length > 0 ? (
+          <ul>
+            {result.blockedCases.map((blockedCase) => (
+              <li key={blockedCase.reviewedCaseId}>
+                {blockedCase.title} ({blockedCase.status}): {blockedCase.blockers.map((blocker) => blocker.text).join(" ")}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No blocked cases returned in this mapping.</p>
+        )}
+      </div>
+      <p className="trust-note">{result.disclaimer}</p>
+    </div>
+  );
 }
 
 function TestCaseReviewEditor({
